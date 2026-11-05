@@ -53,16 +53,17 @@ Sigue estos sencillos pasos para crear tu servidor de Minecraft desde cero en **
 1. En el panel web, ve a la pestaña **📦 Versiones e Instalador**.
 2. Elige el tipo de servidor según lo que quieras jugar:
    - **Vanilla:** Si quieres jugar el Minecraft oficial clásico sin modificaciones.
+   - **NeoForge:** La opción moderna y estándar para mods en Minecraft 1.20.1+ y 1.21+.
+   - **Forge:** Para paquetes de mods tradicionales y legados.
    - **Fabric:** Ideal para optimización (Sodium, Lithium, Iris) y mods modernos ligeros.
    - **Purpur:** La mejor opción para jugar con plugins (Spigot/Paper) y máxima fluidez.
-   - **Forge:** Para paquetes de mods tradicionales pesados.
 3. Elige la versión que quieras (por ejemplo: `26.3`, `1.21.4`, `1.20.1`) y haz clic en **📥 Descargar e Instalar**.
 4. El panel descargará e instalará el servidor de forma automática.
 
 ---
 
 ### 3. Agregar Mods (Opcional)
-Si elegiste **Fabric** o **Forge**:
+Si elegiste **NeoForge**, **Fabric** o **Forge**:
 1. Entra en la carpeta `servidor_minecraft/mods/` desde el explorador de archivos de Codespaces o de tu sistema.
 2. Sube o pega allí tus archivos de mods con extensión `.jar`.
    > 💡 *Asegúrate de que los mods coincidan exactamente con la versión de Minecraft y con el cargador seleccionado.*

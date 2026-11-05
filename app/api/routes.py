@@ -39,13 +39,32 @@ class DiscordTestRequest(BaseModel):
 
 
 class DownloadVersionRequest(BaseModel):
-    server_type: str = Field(default="vanilla", description="vanilla, fabric, purpur, or forge")
+    server_type: str = Field(default="vanilla", description="vanilla, fabric, purpur, forge, or neoforge")
     version: str = Field(..., description="Minecraft version string, e.g. 26.2, 1.21.4")
 
 
 def detect_software_info(server_dir: Path, target: str) -> dict:
     """Detects a friendly name and description for the active Minecraft server setup."""
     target_lower = target.lower()
+
+    # Distinguish NeoForge from classic Forge
+    is_neoforge = "neoforge" in target_lower or (server_dir / "libraries" / "net" / "neoforged").exists()
+    if not is_neoforge and (server_dir / "run.sh").exists():
+        try:
+            content = (server_dir / "run.sh").read_text(errors="ignore")
+            if "neoforged" in content:
+                is_neoforge = True
+        except Exception:
+            pass
+
+    if is_neoforge:
+        return {
+            "name": "NeoForge",
+            "icon": "🔥",
+            "type": "neoforge",
+            "runner": target if target else "run.sh",
+            "description": "Servidor moderno para mods de NeoForge (ejecuta run.sh)",
+        }
 
     if target == "run.sh" or (server_dir / "run.sh").exists() or "forge" in target_lower:
         return {
@@ -266,7 +285,7 @@ def setup_routes(
 
     @app_router.get("/installer/versions")
     async def get_versions(
-        server_type: str = Query("vanilla", description="vanilla, fabric, purpur, or forge"),
+        server_type: str = Query("vanilla", description="vanilla, fabric, purpur, forge, or neoforge"),
         include_snapshots: bool = Query(False, description="Include experimental snapshots")
     ):
         versions = await installer.get_versions(server_type=server_type, include_snapshots=include_snapshots)

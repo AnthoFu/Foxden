@@ -551,6 +551,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const opt = document.createElement("option");
         opt.value = ver;
         let prefix = "Minecraft";
+        if (serverType === "neoforge") prefix = "NeoForge MC";
         if (serverType === "forge") prefix = "Forge MC";
         if (serverType === "fabric") prefix = "Fabric MC";
         if (serverType === "purpur") prefix = "Purpur MC";
