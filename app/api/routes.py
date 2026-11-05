@@ -8,9 +8,11 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.core.config import ConfigManager
+from app.core.discord import DiscordNotifier
 from app.core.installer import ServerInstaller
 from app.core.jdk import JdkManager
 from app.core.process import MinecraftProcess
+from app.core.settings import SettingsManager
 from app.core.tunnel import PlayitTunnelManager
 
 router = APIRouter(prefix="/api")
@@ -26,6 +28,14 @@ class ConfigUpdateRequest(BaseModel):
     max_ram_gb: Optional[int] = Field(default=None, ge=1, le=64)
     target_jar: Optional[str] = Field(default=None)
     selected_jdk: Optional[str] = Field(default=None)
+    discord_webhook_url: Optional[str] = Field(default=None)
+    discord_show_ip: Optional[bool] = Field(default=None)
+    public_ip_alias: Optional[str] = Field(default=None)
+
+
+class DiscordTestRequest(BaseModel):
+    webhook_url: Optional[str] = Field(default=None)
+    show_ip: Optional[bool] = Field(default=None)
 
 
 class DownloadVersionRequest(BaseModel):
@@ -76,21 +86,23 @@ def setup_routes(
     config_mgr: ConfigManager,
     installer: ServerInstaller,
     tunnel_mgr: PlayitTunnelManager,
-    launch_state: dict,
+    settings_mgr: SettingsManager,
+    discord_notifier: DiscordNotifier,
 ) -> None:
     jdk_manager = JdkManager()
 
     @app_router.get("/status")
     async def get_status():
         metrics = process.get_metrics()
-        target = launch_state.get("target_jar", "server.jar")
+        target = settings_mgr.get("target_jar", "server.jar")
         metrics["target_jar"] = target
-        metrics["min_ram_gb"] = launch_state.get("min_ram_gb", 2)
-        metrics["max_ram_gb"] = launch_state.get("max_ram_gb", 4)
+        metrics["min_ram_gb"] = settings_mgr.get("min_ram_gb", 2)
+        metrics["max_ram_gb"] = settings_mgr.get("max_ram_gb", 4)
         metrics["software_info"] = detect_software_info(installer.server_dir, target)
-        metrics["installed_version"] = launch_state.get("installed_version", "")
-        metrics["active_jdk"] = launch_state.get("selected_jdk", "auto")
+        metrics["installed_version"] = settings_mgr.get("installed_version", "")
+        metrics["active_jdk"] = settings_mgr.get("selected_jdk", "auto")
         metrics["tunnel"] = tunnel_mgr.get_status()
+        metrics["discord_configured"] = discord_notifier.is_configured()
         return metrics
 
     @app_router.get("/jdks")
@@ -120,13 +132,13 @@ def setup_routes(
     async def start_server():
         config_mgr.ensure_eula_accepted()
 
-        min_ram = launch_state.get("min_ram_gb", 2)
-        max_ram = launch_state.get("max_ram_gb", 4)
-        target = launch_state.get("target_jar", "server.jar")
-        installed_version = launch_state.get("installed_version", "")
+        min_ram = settings_mgr.get("min_ram_gb", 2)
+        max_ram = settings_mgr.get("max_ram_gb", 4)
+        target = settings_mgr.get("target_jar", "server.jar")
+        installed_version = settings_mgr.get("installed_version", "")
 
         # Select best JDK
-        selected_jdk_path = launch_state.get("selected_jdk")
+        selected_jdk_path = settings_mgr.get("selected_jdk")
         if selected_jdk_path and selected_jdk_path != "auto":
             jdks = jdk_manager.list_installed_jdks()
             jdk_info = next((j for j in jdks if j["path"] == selected_jdk_path), None)
@@ -183,14 +195,17 @@ def setup_routes(
     async def get_config():
         summary = config_mgr.get_summary_settings()
         all_props = config_mgr.read_properties()
-        target = launch_state.get("target_jar", "server.jar")
+        target = settings_mgr.get("target_jar", "server.jar")
         return {
             "summary": summary,
             "all_properties": all_props,
-            "min_ram_gb": launch_state.get("min_ram_gb", 2),
-            "max_ram_gb": launch_state.get("max_ram_gb", 4),
+            "min_ram_gb": settings_mgr.get("min_ram_gb", 2),
+            "max_ram_gb": settings_mgr.get("max_ram_gb", 4),
             "target_jar": target,
-            "selected_jdk": launch_state.get("selected_jdk", "auto"),
+            "selected_jdk": settings_mgr.get("selected_jdk", "auto"),
+            "discord_webhook_url": discord_notifier.webhook_url or "",
+            "discord_show_ip": discord_notifier.show_ip,
+            "public_ip_alias": settings_mgr.get("public_ip_alias", ""),
             "software_info": detect_software_info(installer.server_dir, target),
             "tunnel": tunnel_mgr.get_status(),
         }
@@ -200,16 +215,54 @@ def setup_routes(
         if req.properties:
             config_mgr.update_properties(req.properties)
 
+        updates = {}
         if req.min_ram_gb is not None:
-            launch_state["min_ram_gb"] = req.min_ram_gb
+            updates["min_ram_gb"] = req.min_ram_gb
         if req.max_ram_gb is not None:
-            launch_state["max_ram_gb"] = req.max_ram_gb
+            updates["max_ram_gb"] = req.max_ram_gb
         if req.target_jar is not None:
-            launch_state["target_jar"] = req.target_jar
+            updates["target_jar"] = req.target_jar
         if req.selected_jdk is not None:
-            launch_state["selected_jdk"] = req.selected_jdk
+            updates["selected_jdk"] = req.selected_jdk
+        if req.discord_webhook_url is not None:
+            updates["discord_webhook_url"] = req.discord_webhook_url.strip()
+            discord_notifier.webhook_url = req.discord_webhook_url.strip() or None
+        if req.discord_show_ip is not None:
+            updates["discord_show_ip"] = req.discord_show_ip
+            discord_notifier.show_ip = bool(req.discord_show_ip)
+        if req.public_ip_alias is not None:
+            updates["public_ip_alias"] = req.public_ip_alias.strip()
+
+        if updates:
+            settings_mgr.update(updates)
 
         return {"status": "updated", "config": await get_config()}
+
+    @app_router.post("/discord/test")
+    async def test_discord(req: DiscordTestRequest):
+        url = (req.webhook_url or discord_notifier.webhook_url or "").strip()
+        if not url:
+            raise HTTPException(status_code=400, detail="Debes ingresar la URL del Webhook de Discord.")
+
+        if not (url.startswith("https://discord.com/api/webhooks/") or url.startswith("https://discordapp.com/api/webhooks/")):
+            raise HTTPException(
+                status_code=400,
+                detail="La URL debe ser un webhook oficial de Discord (comenzar con https://discord.com/api/webhooks/...)",
+            )
+
+        ip = tunnel_mgr.public_address or settings_mgr.get("public_ip_alias") or "playit.tu-servidor.gg"
+        success = await discord_notifier.send_test_message(
+            public_ip=ip,
+            custom_webhook=url,
+            custom_show_ip=req.show_ip,
+        )
+        if not success:
+            raise HTTPException(
+                status_code=400,
+                detail="Discord rechazó la solicitud. Verifica que la URL del Webhook sea correcta y esté activa.",
+            )
+
+        return {"status": "success", "message": "¡Notificación de prueba enviada con éxito a Discord!"}
 
     @app_router.get("/installer/versions")
     async def get_versions(
@@ -229,8 +282,10 @@ def setup_routes(
         try:
             target_file = await installer.download_server(req.server_type, req.version)
             config_mgr.ensure_eula_accepted()
-            launch_state["target_jar"] = target_file.name
-            launch_state["installed_version"] = req.version
+            settings_mgr.update({
+                "target_jar": target_file.name,
+                "installed_version": req.version,
+            })
             software_info = detect_software_info(installer.server_dir, target_file.name)
             return {
                 "status": "success",

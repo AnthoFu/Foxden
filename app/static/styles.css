@@ -639,3 +639,20 @@ body {
   padding: 1rem 1.25rem;
   border-radius: 6px;
 }
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-container input[type="checkbox"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--accent-blue);
+  cursor: pointer;
+}

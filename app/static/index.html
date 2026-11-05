@@ -190,6 +190,30 @@
               </select>
             </div>
 
+            <div class="form-group full-width">
+              <hr class="divider">
+              <h3>🔔 Notificaciones de Discord</h3>
+              <p class="text-muted text-sm">Recibe alertas automáticas en tu canal de Discord cuando el servidor se encienda o se detenga.</p>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="cfgDiscordWebhook">URL del Webhook de Discord</label>
+              <div class="action-inline">
+                <input type="password" id="cfgDiscordWebhook" placeholder="https://discord.com/api/webhooks/..." class="flex-grow">
+                <button type="button" id="btnToggleWebhookVisibility" class="btn btn-secondary btn-sm" title="Mostrar/Ocultar URL">👁️</button>
+                <button type="button" id="btnTestDiscord" class="btn btn-secondary btn-sm">🧪 Probar Webhook</button>
+              </div>
+              <span id="discordTestFeedback" class="text-sm mt-1" style="display: block;"></span>
+            </div>
+
+            <div class="form-group full-width">
+              <label class="checkbox-container">
+                <input type="checkbox" id="cfgDiscordShowIp" checked>
+                <span>Incluir la dirección IP pública (Playit) en las notificaciones</span>
+              </label>
+              <p class="text-muted text-sm mt-1">Si desactivas esta opción, tus notificaciones en Discord no mostrarán la dirección de conexión para mayor privacidad.</p>
+            </div>
+
             <div class="form-actions full-width">
               <button type="submit" class="btn btn-primary">Guardar Configuración</button>
               <span id="configSaveMsg" class="save-feedback"></span>

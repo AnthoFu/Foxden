@@ -38,10 +38,11 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Binaries and Playit credentials
+# Binaries, Playit credentials and private settings
 bin/
 *.sock
 playit.toml
+foxden_settings.json
 
 # Minecraft runtime data - keep template pristine!
 servidor_minecraft/*

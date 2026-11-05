@@ -9,11 +9,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import router as api_router, setup_routes
+from app.api.routes import router as api_router, setup_routes, detect_software_info
 from app.api.websocket import router as ws_router, setup_console_websocket
 from app.core.config import ConfigManager
+from app.core.discord import DiscordNotifier
 from app.core.installer import ServerInstaller
 from app.core.process import MinecraftProcess
+from app.core.settings import SettingsManager
 from app.core.tunnel import PlayitTunnelManager
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -35,18 +37,57 @@ process_manager = MinecraftProcess(server_dir=SERVER_DIR)
 config_manager = ConfigManager(server_dir=SERVER_DIR)
 installer = ServerInstaller(server_dir=SERVER_DIR)
 tunnel_manager = PlayitTunnelManager(base_dir=BASE_DIR)
+settings_manager = SettingsManager(base_dir=BASE_DIR)
+discord_notifier = DiscordNotifier(
+    webhook_url=settings_manager.get("discord_webhook_url"),
+    show_ip=settings_manager.get("discord_show_ip", True),
+)
 
-# In-memory launch settings
-launch_state = {
-    "min_ram_gb": 2,
-    "max_ram_gb": 4,
-    "target_jar": "server.jar" if (SERVER_DIR / "server.jar").exists() else ("run.sh" if (SERVER_DIR / "run.sh").exists() else "server.jar"),
-    "installed_version": "26.3",
-    "selected_jdk": "auto",
-}
+
+def format_uptime(seconds: float) -> str:
+    s = int(seconds)
+    m = s // 60
+    h = m // 60
+    if h > 0:
+        return f"{h}h {m % 60}m"
+    if m > 0:
+        return f"{m}m {s % 60}s"
+    return f"{s}s"
+
+
+async def handle_server_ready():
+    target = settings_manager.get("target_jar", "server.jar")
+    info = detect_software_info(installer.server_dir, target)
+    props = config_manager.read_properties()
+    motd = props.get("motd", "A Minecraft Server")
+    ip = tunnel_manager.public_address or settings_manager.get("public_ip_alias")
+    await discord_notifier.notify_server_online(
+        software_name=info["name"],
+        version=settings_manager.get("installed_version", "26.3"),
+        public_ip=ip,
+        motd=motd,
+    )
+
+
+async def handle_server_stopped(uptime_seconds: float, return_code: int):
+    uptime_str = format_uptime(uptime_seconds)
+    was_crash = (return_code != 0)
+    await discord_notifier.notify_server_stopped(uptime_str=uptime_str, was_crash=was_crash)
+
+
+process_manager.on_server_ready = handle_server_ready
+process_manager.on_server_stopped = handle_server_stopped
 
 # Attach endpoints
-setup_routes(api_router, process_manager, config_manager, installer, tunnel_manager, launch_state)
+setup_routes(
+    api_router,
+    process_manager,
+    config_mgr=config_manager,
+    installer=installer,
+    tunnel_mgr=tunnel_manager,
+    settings_mgr=settings_manager,
+    discord_notifier=discord_notifier,
+)
 setup_console_websocket(ws_router, process_manager)
 
 app.include_router(api_router)

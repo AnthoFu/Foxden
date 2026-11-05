@@ -18,6 +18,7 @@ Desarrollado con pasión por **[AnthoFu](https://github.com/AnthoFu)** (Anthony 
 - **☕ Detección Inteligente de Java (JDK):** Escaneo dinámico de versiones instaladas (Java 17, 21 y 25) y configuración automática de `JAVA_HOME` y `PATH` según los requerimientos de la versión de Minecraft elegida.
 - **🌐 Conexión Pública Integrada (Playit.gg):** Túnel TCP de baja latencia con descarga automática del agente y vinculación rápida, permitiendo que tus amigos se conecten a tu servidor en GitHub Codespaces sin necesidad de abrir puertos en el router.
 - **🖥️ Consola en Vivo con WebSockets:** Transmisión bidireccional en tiempo real con resaltado de sintaxis ANSI, buffer circular de registros y navegación de historial de comandos (flechas arriba/abajo).
+- **🔔 Alertas por Webhook de Discord:** Notificaciones automáticas con embeds enriquecidos cuando el servidor se enciende o se apaga, con opción para mostrar u ocultar la IP pública por privacidad y botón de prueba integrado.
 - **⚙️ Configuración Visual:** Ajuste de propiedades (`online-mode` para cuentas No-Premium y Premium, dificultad, modo de juego, MOTD, puertos y asignación de memoria RAM JVM `-Xms` / `-Xmx`).
 - **☁️ Listo para GitHub Codespaces:** Incluye `.devcontainer` optimizado para iniciar en la nube con un solo clic.
 

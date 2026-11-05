@@ -10,7 +10,7 @@ import time
 from collections import deque
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Deque, Dict, List, Optional, Set
+from typing import Any, Callable, Deque, Dict, List, Optional, Set
 import psutil
 
 
@@ -36,6 +36,8 @@ class MinecraftProcess:
         self.log_history: Deque[str] = deque(maxlen=max_log_history)
         self._subscribers: Set[Callable[[str], None]] = set()
         self._reader_task: Optional[asyncio.Task] = None
+        self.on_server_ready: Optional[Callable[[], Any]] = None
+        self.on_server_stopped: Optional[Callable[[float, int], Any]] = None
 
     def subscribe(self, callback: Callable[[str], None]) -> None:
         self._subscribers.add(callback)
@@ -97,11 +99,26 @@ class MinecraftProcess:
                 if 'Done (' in line and ')! For help, type "help"' in line or "Timings Reset" in line:
                     self.state = ProcessState.RUNNING
                     self._broadcast_log("[FOXDEN] ¡El servidor está EN LÍNEA y listo para recibir jugadores!")
+                    if self.on_server_ready:
+                        try:
+                            res = self.on_server_ready()
+                            if asyncio.iscoroutine(res):
+                                asyncio.create_task(res)
+                        except Exception as cb_err:
+                            self._broadcast_log(f"[FOXDEN] Error en callback de servidor listo: {cb_err}")
 
         return_code = await self.process.wait()
+        uptime_seconds = time.time() - self.start_time if self.start_time else 0.0
         self.state = ProcessState.STOPPED
         self.process = None
         self._broadcast_log(f"[FOXDEN] El proceso del servidor finalizó con código {return_code}.")
+        if self.on_server_stopped:
+            try:
+                res = self.on_server_stopped(uptime_seconds, return_code)
+                if asyncio.iscoroutine(res):
+                    asyncio.create_task(res)
+            except Exception as cb_err:
+                self._broadcast_log(f"[FOXDEN] Error en callback de servidor detenido: {cb_err}")
 
     async def send_command(self, command: str) -> bool:
         if not self.process or self.process.returncode is not None or not self.process.stdin:

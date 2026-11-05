@@ -365,6 +365,13 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("cfgMinRam").value = data.min_ram_gb || 2;
       document.getElementById("cfgMaxRam").value = data.max_ram_gb || 4;
 
+      if (document.getElementById("cfgDiscordWebhook")) {
+        document.getElementById("cfgDiscordWebhook").value = data.discord_webhook_url || "";
+      }
+      if (document.getElementById("cfgDiscordShowIp")) {
+        document.getElementById("cfgDiscordShowIp").checked = data.discord_show_ip !== false;
+      }
+
       // Load installed JDKs
       const jdkRes = await fetch("/api/jdks");
       if (jdkRes.ok) {
@@ -402,6 +409,8 @@ document.addEventListener("DOMContentLoaded", () => {
       min_ram_gb: parseInt(document.getElementById("cfgMinRam").value, 10),
       max_ram_gb: parseInt(document.getElementById("cfgMaxRam").value, 10),
       selected_jdk: cfgJdk.value,
+      discord_webhook_url: document.getElementById("cfgDiscordWebhook") ? document.getElementById("cfgDiscordWebhook").value.trim() : "",
+      discord_show_ip: document.getElementById("cfgDiscordShowIp") ? document.getElementById("cfgDiscordShowIp").checked : true,
     };
 
     try {
@@ -423,6 +432,75 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     setTimeout(() => { configSaveMsg.textContent = ""; }, 4000);
   });
+
+  // Discord test button and password toggle
+  const btnTestDiscord = document.getElementById("btnTestDiscord");
+  const discordTestFeedback = document.getElementById("discordTestFeedback");
+  if (btnTestDiscord) {
+    btnTestDiscord.addEventListener("click", async () => {
+      const webhookUrl = (document.getElementById("cfgDiscordWebhook")?.value || "").trim();
+      const showIp = document.getElementById("cfgDiscordShowIp") ? document.getElementById("cfgDiscordShowIp").checked : true;
+
+      if (!webhookUrl) {
+        if (discordTestFeedback) {
+          discordTestFeedback.textContent = "⚠️ Ingresa primero la URL del webhook de Discord.";
+          discordTestFeedback.style.color = "var(--accent-amber)";
+        }
+        return;
+      }
+
+      btnTestDiscord.disabled = true;
+      if (discordTestFeedback) {
+        discordTestFeedback.textContent = "⏳ Enviando notificación de prueba a Discord...";
+        discordTestFeedback.style.color = "var(--text-muted)";
+      }
+
+      try {
+        const res = await fetch("/api/discord/test", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ webhook_url: webhookUrl, show_ip: showIp }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          if (discordTestFeedback) {
+            discordTestFeedback.textContent = `✓ ${data.message || "¡Notificación enviada con éxito!"}`;
+            discordTestFeedback.style.color = "var(--accent-green)";
+          }
+        } else {
+          if (discordTestFeedback) {
+            discordTestFeedback.textContent = `✗ ${data.detail || "Error al enviar al webhook de Discord."}`;
+            discordTestFeedback.style.color = "var(--accent-red)";
+          }
+        }
+      } catch (err) {
+        if (discordTestFeedback) {
+          discordTestFeedback.textContent = "✗ Error de red al conectar con el servidor.";
+          discordTestFeedback.style.color = "var(--accent-red)";
+        }
+      } finally {
+        btnTestDiscord.disabled = false;
+        setTimeout(() => {
+          if (discordTestFeedback) discordTestFeedback.textContent = "";
+        }, 6000);
+      }
+    });
+  }
+
+  const btnToggleWebhookVisibility = document.getElementById("btnToggleWebhookVisibility");
+  if (btnToggleWebhookVisibility) {
+    btnToggleWebhookVisibility.addEventListener("click", () => {
+      const input = document.getElementById("cfgDiscordWebhook");
+      if (!input) return;
+      if (input.type === "password") {
+        input.type = "text";
+        btnToggleWebhookVisibility.textContent = "🙈";
+      } else {
+        input.type = "password";
+        btnToggleWebhookVisibility.textContent = "👁️";
+      }
+    });
+  }
 
   // Versions tab
   async function loadVersionsTab() {
