@@ -1,152 +1,95 @@
 # Foxden 🦊
 
-> **Autonomous Minecraft Server Manager**  
-> Panel de control autónomo, moderno y ligero para desplegar y administrar servidores de Minecraft localmente o en la nube (GitHub Codespaces) sin anuncios, sin telemetría y con soberanía total.
-
-Desarrollado con pasión por **[AnthoFu](https://github.com/AnthoFu)** (Anthony Fuentes).
+> **Tu servidor de Minecraft listo en minutos.**  
+> Un panel web simple y moderno para crear, configurar y jugar en tu propio servidor de Minecraft con amigos desde **GitHub Codespaces** (en la nube) o desde tu computadora. ¡Sin pagar hosting y sin configuraciones complicadas!
 
 ---
 
-## 🌟 Características Principales
+## ⚡ Inicio Rápido (En 3 Pasos)
 
-- **🦊 Soberanía y Control Total:** Sin herramientas opacas, sin acortadores de enlaces ni publicidad invasiva. Todo el código te pertenece.
-- **⚡ Soporte Multi-Versión y Multi-Motor:** Descarga e instalación automática en un solo clic para:
-  - **Mojang Vanilla** (todas las versiones oficiales de lanzamiento)
-  - **NeoForge** (estándar moderno para mods en 1.20.1+ y 1.21+)
-  - **Fabric Loader** (con soporte para mods modernos)
-  - **Minecraft Forge** (instalación automatizada para servidores con mods tradicionales)
-- **☕ Detección Inteligente de Java (JDK):** Escaneo dinámico de versiones instaladas (Java 17, 21 y 25) y configuración automática de `JAVA_HOME` y `PATH` según los requerimientos de la versión de Minecraft elegida.
-- **🌐 Conexión Pública Integrada (Playit.gg):** Túnel TCP de baja latencia con descarga automática del agente y vinculación rápida, permitiendo que tus amigos se conecten a tu servidor en GitHub Codespaces sin necesidad de abrir puertos en el router.
-- **🖥️ Consola en Vivo con WebSockets:** Transmisión bidireccional en tiempo real con resaltado de sintaxis ANSI, buffer circular de registros y navegación de historial de comandos (flechas arriba/abajo).
-- **🔔 Alertas por Webhook de Discord:** Notificaciones automáticas con embeds enriquecidos (avatar de Foxden, colores de estado y guía de conexión) cuando el servidor se enciende, se detiene o sufre una caída. Incluye interruptor maestro para activarlas o pausarlas con un clic, control de privacidad de IP y botón de prueba.
-- **⚙️ Configuración Visual:** Ajuste de propiedades (`online-mode` para cuentas No-Premium y Premium, dificultad, modo de juego, MOTD, puertos y asignación de memoria RAM JVM `-Xms` / `-Xmx`).
-- **☁️ Listo para GitHub Codespaces:** Incluye `.devcontainer` optimizado para iniciar en la nube con un solo clic.
+### 1. Abre el panel en GitHub Codespaces
+1. Haz clic arriba en el botón verde **Code** > pestaña **Codespaces** > **Create codespace on main**.
+2. Espera unos momentos a que cargue y, en la terminal que aparece abajo, escribe:
+   ```bash
+   python run.py
+   ```
+3. Se abrirá automáticamente la ventana del panel de control en tu navegador (o haz clic en **Open in Browser** en el aviso que aparece).
+
+### 2. Elige tu versión de Minecraft
+1. Ve a la pestaña **📦 Versiones e Instalador**.
+2. Elige el tipo de juego que prefieras:
+   - **Vanilla:** El Minecraft oficial clásico de toda la vida.
+   - **NeoForge:** La opción moderna recomendada para jugar con mods (1.20.1 en adelante).
+   - **Forge:** Para paquetes de mods y versiones tradicionales.
+   - **Fabric:** Ideal para optimización (Sodium, Iris) y mods ligeros.
+3. Elige la versión (por ejemplo `1.21.4` o `1.20.1`) y haz clic en **Descargar e Instalar**.
+
+### 3. ¡Inicia y juega!
+1. Haz clic en el botón verde **▶ Iniciar** arriba a la derecha.
+2. En unos segundos tu servidor estará listo para recibir jugadores.
 
 ---
 
-## 🚀 Guía Paso a Paso: De Cero a Servidor en Línea
+## 👥 ¿Cómo se conectan mis amigos?
 
-Sigue estos sencillos pasos para crear tu servidor de Minecraft desde cero en **GitHub Codespaces** (o en tu computadora):
+Para que cualquier persona pueda entrar a tu partida desde cualquier lugar sin tener que abrir puertos en tu router:
 
-### 1. Iniciar el Entorno
-- **En GitHub Codespaces (Recomendado):**
-  1. Haz clic en el botón verde **Code** > pestaña **Codespaces** > **Create codespace on main**.
-  2. Espera unos segundos a que el contenedor termine de configurarse.
-  3. En la terminal integrada de Codespaces, inicia el panel ejecutando:
-     ```bash
-     python run.py
-     ```
-  4. Codespaces detectará el puerto `8000` y abrirá la pestaña automáticamente en tu navegador (también puedes hacer clic en **Open in Browser** en la notificación inferior).
+1. Ve a la pestaña **🌐 Conexión Pública (Playit.gg)** y haz clic en **Iniciar Túnel**.
+2. **La primera vez:** Haz clic en el botón amarillo para abrir tu cuenta gratuita en [playit.gg](https://playit.gg) y vincular tu servidor en unos segundos.
+3. Copia la dirección que te asignen (por ejemplo: `mi-servidor.gl.joinmc.link`).
+4. ¡Pásale esa dirección a tus amigos para que entren desde **Minecraft > Multijugador > Conexión Directa**!
 
-- **Localmente (Linux / macOS / Windows):**
-  ```bash
-  git clone https://github.com/AnthoFu/foxden.git
-  cd foxden
-  python3 -m venv .venv
-  source .venv/bin/activate  # En Windows: .venv\Scripts\activate
-  python run.py
+---
+
+## 🎮 Ajustes Populares (Pestaña Configuración)
+
+- **Permitir cuentas no oficiales (No-Premium):** En la pestaña **⚙️ Configuración**, cambia **Tipo de Cuentas** a *Permitir No-Premium y Premium* y haz clic en **Guardar Configuración**.
+- **Semilla del mundo (World Seed):** Si quieres generar un mapa específico con una semilla que te guste, escríbela en el campo **Semilla del Mundo** antes de iniciar el servidor por primera vez.
+- **Darte permisos de Administrador (OP):** En la pestaña **🖥️ Consola en Vivo**, escribe:
+  ```text
+  op tu_nombre_en_minecraft
   ```
+  y presiona **Enviar**.
 
 ---
 
-### 2. Instalar el Motor de Minecraft
-1. En el panel web, ve a la pestaña **📦 Versiones e Instalador**.
-2. Elige el tipo de servidor según lo que quieras jugar:
-   - **Vanilla:** Si quieres jugar el Minecraft oficial clásico sin modificaciones.
-   - **NeoForge:** La opción moderna y estándar para mods en Minecraft 1.20.1+ y 1.21+.
-   - **Forge:** Para paquetes de mods tradicionales y legados.
-   - **Fabric:** Ideal para optimización (Sodium, Lithium, Iris) y mods modernos ligeros.
-3. Elige la versión que quieras (por ejemplo: `26.3`, `1.21.4`, `1.20.1`) y haz clic en **📥 Descargar e Instalar**.
-4. El panel descargará e instalará el servidor de forma automática.
+## 🧩 ¿Cómo agregar Mods?
 
----
-
-### 3. Agregar Mods (Opcional)
 Si elegiste **NeoForge**, **Fabric** o **Forge**:
-1. Entra en la carpeta `servidor_minecraft/mods/` desde el explorador de archivos de Codespaces o de tu sistema.
-2. Sube o pega allí tus archivos de mods con extensión `.jar`.
-   > 💡 *Asegúrate de que los mods coincidan exactamente con la versión de Minecraft y con el cargador seleccionado.*
+1. Abre la carpeta `servidor_minecraft/mods/` en el explorador de archivos de la izquierda.
+2. Arrastra y suelta allí tus archivos de mods (archivos con extensión `.jar`).
+3. Asegúrate de que los mods coincidan con la versión de Minecraft que instalaste.
+4. Inicia o reinicia el servidor. ¡Listo!
 
 ---
 
-### 4. Configurar las Opciones del Servidor
-1. Entra en la pestaña **⚙️ Configuración**.
-2. Personaliza las opciones principales:
-   - **Semilla del Mundo (World Seed):** Configura la semilla deseada antes de iniciar el mapa por primera vez (o déjala vacía para mapa aleatorio).
-   - **Modo Online:** Desactívalo si tú o tus amigos usan launchers no oficiales (**No-Premium / Cracked**). Déjalo activado si todos juegan con cuenta oficial comprada de Minecraft.
-   - **Memoria RAM:** Asigna la memoria mínima y máxima (recomendado para Codespaces: Mínimo 2 GB, Máximo 4 GB).
-   - **Notificaciones de Discord:** Interruptor maestro para activar o pausar alertas automáticas de encendido, apagado y caídas del servidor sin tener que borrar tu webhook, con control de privacidad de IP pública.
-   - **Dificultad, Modo de Juego y MOTD** (mensaje de bienvenida en la lista de servidores).
-3. Haz clic en **Guardar Configuración**.
+## 🔔 Notificaciones en Discord (Opcional)
+
+Si tienes un canal de Discord con tus amigos:
+1. En Discord, ve a los ajustes de tu canal > **Integraciones** > **Webhooks** y crea uno nuevo.
+2. Copia la URL del webhook y pégala en la pestaña **⚙️ Configuración** de Foxden.
+3. Foxden avisará automáticamente en tu canal cuando el servidor esté encendido con la dirección para entrar, y avisará cuando se apague.
+4. Puedes pausar o reactivar las alertas en cualquier momento con el interruptor sin tener que borrar tu URL.
 
 ---
 
-### 5. Iniciar el Servidor
-> 🛡️ **Protección de arranque:** Por estabilidad, el botón **Iniciar** permanece desactivado hasta que instales un motor en el paso 2.
-
-1. En la esquina superior derecha del panel, haz clic en el botón verde **▶ Iniciar**.
-2. En la pestaña **🖥️ Consola en Vivo**, verás la carga del mapa en tiempo real hasta que aparezca el mensaje:
-   ```text
-   [FOXDEN] ¡El servidor está EN LÍNEA y listo para recibir jugadores!
-   ```
-3. Si quieres darte permisos de Administrador para usar comandos en el juego, escribe en la consola:
-   ```text
-   op tu_usuario
-   ```
-   y presiona **Enviar**.
-
----
-
-### 6. Conectar Jugadores con Playit.gg (Túnel Público)
-Para que cualquier persona pueda entrar al servidor desde cualquier parte del mundo sin abrir puertos:
-1. Ve a la pestaña **🌐 Conexión Pública (Playit.gg)** y haz clic en **🌐 Iniciar Túnel**.
-2. **Primera vez (Vinculación):** Aparecerá un aviso con un botón amarillo. Haz clic para abrir tu cuenta gratuita en [playit.gg](https://playit.gg) y vincular el agente en unos segundos.
-3. Una vez conectado, el estado cambiará a **🟢 ONLINE**.
-4. Consulta tu dirección pública asignada en tu cuenta de [playit.gg/manage/tunnels](https://playit.gg/manage/tunnels) (por ejemplo: `mi-servidor.gl.joinmc.link`).
-5. Pega esa dirección en el campo del panel para tenerla siempre guardada y copiarla con un solo clic.
-6. ¡Comparte esa dirección con tus amigos para que se conecten desde: **Minecraft > Multijugador > Conexión Directa**!
-
----
-
-## 🏗️ Estructura del Proyecto
-
-```text
-foxden/
-├── app/
-│   ├── api/          # Endpoints REST (FastAPI) y WebSocket de la consola
-│   ├── core/         # Motores del dominio (Procesos, Configuración, Instalador, JDK, Túnel)
-│   ├── static/       # Dashboard SPA oscuro (HTML5, Vanilla JS, CSS3 puro)
-│   └── main.py       # Ensamblador de la aplicación FastAPI
-├── servidor_minecraft/
-│   ├── mods/         # Carpeta lista para colocar tus mods (.jar)
-│   └── .gitkeep      # Directorio aislado de ejecución del servidor (datos ignorados en git)
-├── .devcontainer/    # Configuración de contenedor lista para GitHub Codespaces
-├── requirements.txt  # Dependencias Python mínimas
-└── run.py            # CLI launcher con autoinstalación de dependencias y recarga en vivo
-```
-
----
-
-## ❓ Preguntas Frecuentes y Consejos
+## ❓ Preguntas Frecuentes
 
 <details>
-<summary><strong>¿Qué versión de Java necesito tener instalada?</strong></summary>
-Foxden cuenta con un administrador inteligente de JDKs que detecta automáticamente si tu versión de Minecraft necesita Java 17, Java 21 o Java 25, y configura las variables de entorno sin que tengas que ajustar nada manualmente.
+<summary><strong>¿Tengo que instalar Java en mi computadora?</strong></summary>
+Si usas <strong>GitHub Codespaces</strong>, no tienes que instalar nada; todo viene listo y Foxden detecta y utiliza la versión de Java adecuada según la versión de Minecraft que elijas.
 </details>
 
 <details>
-<summary><strong>¿Dónde se guardan el mapa y las partidas?</strong></summary>
-Todos los datos de tu mundo se generan dentro de <code>servidor_minecraft/world/</code>. Si quieres hacer una copia de seguridad manual, solo descarga esa carpeta.
+<summary><strong>¿Dónde se guarda mi mundo y mis construcciones?</strong></summary>
+Todo tu progreso y partidas se guardan dentro de la carpeta <code>servidor_minecraft/world/</code>. Si quieres hacer una copia de seguridad, solo descarga esa carpeta.
 </details>
 
 <details>
-<summary><strong>¿Cómo detengo el servidor de forma segura?</strong></summary>
-Haz clic en el botón rojo <strong>■ Detener</strong> en el panel. Foxden enviará el comando <code>stop</code> a Minecraft y esperará a que todos los bloques y chunks se guarden en el disco antes de cerrar el proceso, evitando cualquier pérdida o corrupción de datos.
+<summary><strong>¿Cómo apago el servidor correctamente?</strong></summary>
+Haz clic en el botón rojo <strong>■ Detener</strong> en el panel. Foxden guardará todo el mapa antes de cerrar el juego para que nunca pierdas nada.
 </details>
 
 ---
 
-## 🦊 Créditos y Licencia
-
-Creado con pasión por **[AnthoFu](https://github.com/AnthoFu)**.  
-Distribuido bajo licencia MIT.
+Hecho con ❤️ por **[AnthoFu](https://github.com/AnthoFu)**.
