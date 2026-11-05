@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Foxden 🦊 - Minecraft Server Manager</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="brand-icon">🦊</div>
+        <div>
+          <h1>Foxden</h1>
+          <p class="subtitle">Autonomous Minecraft Server Manager</p>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="status-badge" id="statusBadge">
+          <span class="status-dot"></span>
+          <span id="statusText">DESCONECTADO</span>
+        </div>
+        <div class="metrics-group">
+          <div class="metric-chip">
+            <span class="metric-label">CPU</span>
+            <span class="metric-value" id="cpuValue">0%</span>
+          </div>
+          <div class="metric-chip">
+            <span class="metric-label">RAM</span>
+            <span class="metric-value" id="ramValue">0 MB</span>
+          </div>
+          <div class="metric-chip">
+            <span class="metric-label">UPTIME</span>
+            <span class="metric-value" id="uptimeValue">0s</span>
+          </div>
+          <div class="metric-chip" id="chipTunnelStatus">
+            <span class="metric-label">TÚNEL</span>
+            <span class="metric-value" id="headerTunnelText">OFFLINE</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button id="btnStart" class="btn btn-success">▶ Iniciar</button>
+        <button id="btnRestart" class="btn btn-warning" disabled>↻ Reiniciar</button>
+        <button id="btnStop" class="btn btn-danger" disabled>■ Detener</button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="tabConsole">🖥️ Consola en Vivo</button>
+      <button class="tab-btn" data-tab="tabConfig">⚙️ Configuración</button>
+      <button class="tab-btn" data-tab="tabVersions">📦 Versiones e Instalador</button>
+      <button class="tab-btn" data-tab="tabTunnel">🌐 Conexión Pública (Playit.gg)</button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Tab 1: Console -->
+      <section id="tabConsole" class="tab-pane active">
+        <div class="console-wrapper">
+          <div class="console-toolbar">
+            <div class="toolbar-left">
+              <span class="toolbar-title">TERMINAL DEL SERVIDOR</span>
+              <span class="connection-status" id="wsStatus">● WebSocket: Conectando...</span>
+            </div>
+            <div class="toolbar-right">
+              <label class="toggle-label">
+                <input type="checkbox" id="chkAutoscroll" checked>
+                <span>Autoscroll</span>
+              </label>
+              <button id="btnClearConsole" class="btn btn-secondary btn-sm">Limpiar</button>
+            </div>
+          </div>
+
+          <div class="terminal-body" id="terminalBody"></div>
+
+          <form id="commandForm" class="command-bar">
+            <span class="prompt-symbol">&gt;</span>
+            <input type="text" id="commandInput" placeholder="Escribe un comando (ej: say Hola, op miusuario, whitelist add amigo)..." autocomplete="off">
+            <button type="submit" class="btn btn-primary">Enviar</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Tab 2: Config -->
+      <section id="tabConfig" class="tab-pane">
+        <div class="card">
+          <div class="card-header">
+            <h2>Ajustes Principales del Servidor</h2>
+            <p>Configurá la memoria y las propiedades principales de <code>server.properties</code>.</p>
+          </div>
+          <form id="configForm" class="form-grid">
+            <div class="form-group">
+              <label for="cfgMotd">Mensaje del Día (MOTD)</label>
+              <input type="text" id="cfgMotd" name="motd" placeholder="Mi Servidor de Minecraft">
+            </div>
+
+            <div class="form-group">
+              <label for="cfgPort">Puerto del Servidor</label>
+              <input type="number" id="cfgPort" name="server_port" value="25565">
+            </div>
+
+            <div class="form-group">
+              <label for="cfgMaxPlayers">Máximo de Jugadores</label>
+              <input type="number" id="cfgMaxPlayers" name="max_players" value="20" min="1" max="1000">
+            </div>
+
+            <div class="form-group">
+              <label for="cfgGamemode">Modo de Juego</label>
+              <select id="cfgGamemode" name="gamemode">
+                <option value="survival">Supervivencia (Survival)</option>
+                <option value="creative">Creativo (Creative)</option>
+                <option value="adventure">Aventura (Adventure)</option>
+                <option value="spectator">Espectador (Spectator)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="cfgDifficulty">Dificultad</label>
+              <select id="cfgDifficulty" name="difficulty">
+                <option value="peaceful">Pacífico (Peaceful)</option>
+                <option value="easy">Fácil (Easy)</option>
+                <option value="normal">Normal</option>
+                <option value="hard">Difícil (Hard)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="cfgOnlineMode">Tipo de Cuentas (Online Mode)</label>
+              <select id="cfgOnlineMode" name="online_mode">
+                <option value="true">Solo Cuentas Premium (Mojang/Microsoft)</option>
+                <option value="false">Permitir No-Premium y Premium (Modo Libre)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="cfgPvp">Combate Jugador vs Jugador (PvP)</label>
+              <select id="cfgPvp" name="pvp">
+                <option value="true">Activado</option>
+                <option value="false">Desactivado</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="cfgWhitelist">Lista Blanca (Whitelist)</label>
+              <select id="cfgWhitelist" name="white_list">
+                <option value="false">Desactivada (cualquiera puede entrar)</option>
+                <option value="true">Activada (solo usuarios autorizados)</option>
+              </select>
+            </div>
+
+            <div class="form-group full-width">
+              <hr class="divider">
+              <h3>Asignación de Memoria RAM</h3>
+            </div>
+
+            <div class="form-group">
+              <label for="cfgMinRam">RAM Mínima (-Xms)</label>
+              <div class="input-unit">
+                <input type="number" id="cfgMinRam" min="1" max="32" value="2">
+                <span>GB</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="cfgMaxRam">RAM Máxima (-Xmx)</label>
+              <div class="input-unit">
+                <input type="number" id="cfgMaxRam" min="1" max="32" value="4">
+                <span>GB</span>
+              </div>
+            </div>
+
+            <div class="form-group full-width">
+              <hr class="divider">
+              <h3>Entorno Java (JDK)</h3>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="cfgJdk">Versión de Java para ejecutar el servidor</label>
+              <select id="cfgJdk">
+                <option value="auto">⚡ Automático (Detectar la versión ideal según la versión de Minecraft)</option>
+              </select>
+            </div>
+
+            <div class="form-actions full-width">
+              <button type="submit" class="btn btn-primary">Guardar Configuración</button>
+              <span id="configSaveMsg" class="save-feedback"></span>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Tab 3: Versions -->
+      <section id="tabVersions" class="tab-pane">
+        <!-- User-friendly Active Software Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2>Software y Ejecutable Activo</h2>
+            <p>El panel detecta y configura automáticamente el archivo óptimo para iniciar tu servidor.</p>
+          </div>
+
+          <div class="active-software-card">
+            <div class="software-info-left">
+              <span class="software-icon" id="activeSoftwareIcon">🎮</span>
+              <div>
+                <h3 id="activeSoftwareName">Cargando software...</h3>
+                <p class="software-desc" id="activeSoftwareDesc">Detectando archivos de inicio del servidor</p>
+              </div>
+            </div>
+            <span class="badge badge-success">Listo para Iniciar</span>
+          </div>
+
+          <details class="advanced-accordion">
+            <summary>⚙️ Opciones avanzadas (Selección manual de archivos)</summary>
+            <div class="advanced-content">
+              <p class="text-muted text-sm">Solo modificá esto si querés forzar un script o .jar experimental específico.</p>
+              <div class="action-inline mt-2">
+                <select id="selActiveJar" class="flex-grow"></select>
+                <button id="btnSetActiveJar" class="btn btn-secondary">Forzar Selección</button>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="card mt-4">
+          <div class="card-header">
+            <h2>Instalador Oficial de Versiones de Minecraft</h2>
+            <p>Descargá e instalá cualquier versión oficial de Minecraft Java (Mojang Vanilla con todo su catálogo histórico y actual), Minecraft Forge (para mods), Fabric o Purpur con un solo click.</p>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="selServerType">Tipo de Software</label>
+              <select id="selServerType">
+                <option value="vanilla">🍦 Vanilla Oficial (Mojang - Todas las versiones)</option>
+                <option value="forge">🔨 Minecraft Forge (Soporte de Mods clásicos y modernos)</option>
+                <option value="fabric">🧵 Fabric Loader (Soporte de Mods)</option>
+                <option value="purpur">⚡ Purpur (Alto Rendimiento / Plugins Bukkit & Paper)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="selVersion">Versión de Minecraft</label>
+              <select id="selVersion">
+                <option value="">Cargando catálogo...</option>
+              </select>
+            </div>
+
+            <div class="form-group full-width">
+              <label class="toggle-label">
+                <input type="checkbox" id="chkSnapshots">
+                <span>Incluir versiones de prueba (Snapshots / Betas) en Vanilla</span>
+              </label>
+            </div>
+
+            <div class="form-actions full-width">
+              <button id="btnDownloadServer" class="btn btn-success">⬇ Descargar e Instalar Versión</button>
+              <div id="downloadFeedback" class="download-status"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 4: Playit.gg Tunnel -->
+      <section id="tabTunnel" class="tab-pane">
+        <div class="card">
+          <div class="card-header">
+            <h2>Túnel de Red Playit.gg</h2>
+            <p>Generá una IP pública para que tus amigos jueguen en tu servidor desde cualquier lugar sin abrir puertos (ideal para GitHub Codespaces).</p>
+          </div>
+
+          <div class="tunnel-control-bar">
+            <div class="tunnel-status-indicator">
+              <span class="status-dot" id="tunnelDot"></span>
+              <span id="tunnelStatusText" style="font-weight: 700;">TÚNEL DETENIDO</span>
+            </div>
+            <div class="tunnel-actions">
+              <button id="btnStartTunnel" class="btn btn-success">🌐 Iniciar Túnel</button>
+              <button id="btnStopTunnel" class="btn btn-danger" disabled>■ Detener Túnel</button>
+            </div>
+          </div>
+
+          <!-- Claim Notice -->
+          <div id="tunnelClaimBox" class="tunnel-claim-box" style="display: none;">
+            <h3>⚠️ Vinculación requerida</h3>
+            <p>Tu agente de Playit necesita ser vinculado a tu cuenta por primera vez (toma 10 segundos y es 100% gratis):</p>
+            <a id="tunnelClaimLink" href="#" target="_blank" class="btn btn-warning mt-2">🔗 Reclamar y Vincular Túnel en Playit.gg</a>
+          </div>
+
+          <!-- Public Address Card -->
+          <div id="tunnelAddressCard" class="tunnel-address-card mt-4" style="display: none;">
+            <div class="address-header">
+              <span>ESTADO DE CONEXIÓN PÚBLICA:</span>
+              <a href="https://playit.gg/manage/tunnels" target="_blank" class="btn btn-primary btn-sm">🔗 Administrar en Playit.gg</a>
+            </div>
+
+            <!-- Detected Address Block -->
+            <div id="tunnelDetectedWrapper" style="display: none;">
+              <div class="address-display" id="tunnelAddressDisplay"></div>
+              <div class="action-inline mt-2">
+                <button id="btnCopyAddress" class="btn btn-secondary btn-sm">📋 Copiar IP</button>
+                <button id="btnEditAlias" class="btn btn-secondary btn-sm">✏️ Cambiar / Borrar IP</button>
+              </div>
+              <p class="text-muted text-sm mt-2">Pegá esta dirección en Minecraft dentro de: <strong>Multijugador &gt; Conexión Directa</strong>.</p>
+            </div>
+
+            <!-- Fallback Clean Status Block (No infinite loader) -->
+            <div id="tunnelExternalPrompt" class="tunnel-clean-status mt-2">
+              <p>🟢 <strong>El túnel está activo y transmitiendo hacia el puerto 25565.</strong></p>
+              <p class="text-muted text-sm mt-1">Podés consultar o personalizar tu dirección pública (ej: <code>mi-server.craft.playit.gg</code>) directamente en tu panel de Playit:</p>
+              <div class="action-inline mt-3">
+                <a href="https://playit.gg/manage/tunnels" target="_blank" class="btn btn-success btn-sm">🌐 Ver IP en playit.gg/manage/tunnels</a>
+              </div>
+
+              <!-- Saved Alias Input -->
+              <div class="saved-alias-box mt-3">
+                <label for="txtSavedAlias" class="text-sm font-semibold">Guardar tu dirección pública para recordarla:</label>
+                <div class="action-inline mt-1">
+                  <input type="text" id="txtSavedAlias" placeholder="ej: nombre.craft.playit.gg" class="flex-grow">
+                  <button id="btnSaveAlias" class="btn btn-secondary btn-sm">Guardar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt-4">
+          <div class="card-header">
+            <h2>Registro de Conexión del Túnel</h2>
+          </div>
+          <div class="terminal-body" id="tunnelLogsBody" style="height: 220px; border-radius: 6px;"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
