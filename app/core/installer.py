@@ -1,6 +1,6 @@
 """
 Server installer and JAR downloader.
-Fetches official builds from Mojang (Vanilla), Fabric (Mods), Purpur (Plugins/Performance),
+Fetches official builds from Mojang (Vanilla), Fabric (Mods),
 Minecraft Forge, and NeoForge.
 """
 
@@ -19,7 +19,6 @@ from app.core.jdk import JdkManager
 class ServerInstaller:
     MOJANG_MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
     FABRIC_META_URL = "https://meta.fabricmc.net/v2/versions"
-    PURPUR_API_URL = "https://api.purpurmc.org/v2/purpur"
     FORGE_PROMOS_URL = "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json"
     FORGE_MAVEN_BASE = "https://maven.minecraftforge.net/net/minecraftforge/forge"
     NEOFORGE_MAVEN_META = "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml"
@@ -113,7 +112,7 @@ class ServerInstaller:
         return self._neoforge_manifest_cache
 
     async def get_versions(self, server_type: str = "vanilla", include_snapshots: bool = False) -> List[str]:
-        """Fetch available versions according to server type (vanilla, fabric, purpur, forge, neoforge)."""
+        """Fetch available versions according to server type (vanilla, fabric, forge, neoforge)."""
         server_type = server_type.lower()
         try:
             if server_type == "vanilla":
@@ -145,13 +144,6 @@ class ServerInstaller:
                     if res.status_code == 200:
                         versions = [v["version"] for v in res.json() if v.get("stable")]
                         return versions
-
-            elif server_type in ("purpur", "paper"):
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    res = await client.get(self.PURPUR_API_URL)
-                    if res.status_code == 200:
-                        versions = res.json().get("versions", [])
-                        return list(reversed(versions))
 
             elif server_type == "forge":
                 data = await self.get_forge_promos()
@@ -213,15 +205,6 @@ class ServerInstaller:
                 installer_version = installer_res.json()[0]["version"]
 
                 download_url = f"{self.FABRIC_META_URL}/loader/{version}/{loader_version}/{installer_version}/server/jar"
-                async with client.stream("GET", download_url) as response:
-                    response.raise_for_status()
-                    with open(target_path, "wb") as f:
-                        async for chunk in response.aiter_bytes(chunk_size=65536):
-                            f.write(chunk)
-                return target_path
-
-            elif server_type in ("purpur", "paper"):
-                download_url = f"{self.PURPUR_API_URL}/{version}/latest/download"
                 async with client.stream("GET", download_url) as response:
                     response.raise_for_status()
                     with open(target_path, "wb") as f:

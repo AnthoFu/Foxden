@@ -12,9 +12,9 @@ Desarrollado con pasión por **[AnthoFu](https://github.com/AnthoFu)** (Anthony 
 - **🦊 Soberanía y Control Total:** Sin herramientas opacas, sin acortadores de enlaces ni publicidad invasiva. Todo el código te pertenece.
 - **⚡ Soporte Multi-Versión y Multi-Motor:** Descarga e instalación automática en un solo clic para:
   - **Mojang Vanilla** (todas las versiones oficiales de lanzamiento)
+  - **NeoForge** (estándar moderno para mods en 1.20.1+ y 1.21+)
   - **Fabric Loader** (con soporte para mods modernos)
-  - **Purpur MC** (optimizado para alto rendimiento y plugins Bukkit/Paper)
-  - **Minecraft Forge** (instalación automatizada para servidores con mods)
+  - **Minecraft Forge** (instalación automatizada para servidores con mods tradicionales)
 - **☕ Detección Inteligente de Java (JDK):** Escaneo dinámico de versiones instaladas (Java 17, 21 y 25) y configuración automática de `JAVA_HOME` y `PATH` según los requerimientos de la versión de Minecraft elegida.
 - **🌐 Conexión Pública Integrada (Playit.gg):** Túnel TCP de baja latencia con descarga automática del agente y vinculación rápida, permitiendo que tus amigos se conecten a tu servidor en GitHub Codespaces sin necesidad de abrir puertos en el router.
 - **🖥️ Consola en Vivo con WebSockets:** Transmisión bidireccional en tiempo real con resaltado de sintaxis ANSI, buffer circular de registros y navegación de historial de comandos (flechas arriba/abajo).
@@ -56,7 +56,6 @@ Sigue estos sencillos pasos para crear tu servidor de Minecraft desde cero en **
    - **NeoForge:** La opción moderna y estándar para mods en Minecraft 1.20.1+ y 1.21+.
    - **Forge:** Para paquetes de mods tradicionales y legados.
    - **Fabric:** Ideal para optimización (Sodium, Lithium, Iris) y mods modernos ligeros.
-   - **Purpur:** La mejor opción para jugar con plugins (Spigot/Paper) y máxima fluidez.
 3. Elige la versión que quieras (por ejemplo: `26.3`, `1.21.4`, `1.20.1`) y haz clic en **📥 Descargar e Instalar**.
 4. El panel descargará e instalará el servidor de forma automática.
 

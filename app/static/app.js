@@ -554,7 +554,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (serverType === "neoforge") prefix = "NeoForge MC";
         if (serverType === "forge") prefix = "Forge MC";
         if (serverType === "fabric") prefix = "Fabric MC";
-        if (serverType === "purpur") prefix = "Purpur MC";
         opt.textContent = `${prefix} ${ver}`;
         selVersion.appendChild(opt);
       });

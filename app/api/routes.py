@@ -39,7 +39,7 @@ class DiscordTestRequest(BaseModel):
 
 
 class DownloadVersionRequest(BaseModel):
-    server_type: str = Field(default="vanilla", description="vanilla, fabric, purpur, forge, or neoforge")
+    server_type: str = Field(default="vanilla", description="vanilla, fabric, forge, or neoforge")
     version: str = Field(..., description="Minecraft version string, e.g. 26.2, 1.21.4")
 
 
@@ -81,14 +81,6 @@ def detect_software_info(server_dir: Path, target: str) -> dict:
             "type": "fabric",
             "runner": target if target else "server.jar",
             "description": "Servidor con soporte para mods de Fabric",
-        }
-    if "purpur" in target_lower:
-        return {
-            "name": "Purpur (Paper fork)",
-            "icon": "⚡",
-            "type": "purpur",
-            "runner": target if target else "server.jar",
-            "description": "Servidor de alto rendimiento compatible con plugins",
         }
     return {
         "name": "Minecraft Vanilla (Oficial)",
@@ -285,7 +277,7 @@ def setup_routes(
 
     @app_router.get("/installer/versions")
     async def get_versions(
-        server_type: str = Query("vanilla", description="vanilla, fabric, purpur, forge, or neoforge"),
+        server_type: str = Query("vanilla", description="vanilla, fabric, forge, or neoforge"),
         include_snapshots: bool = Query(False, description="Include experimental snapshots")
     ):
         versions = await installer.get_versions(server_type=server_type, include_snapshots=include_snapshots)
