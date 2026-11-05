@@ -45,6 +45,19 @@ class DownloadVersionRequest(BaseModel):
 
 def detect_software_info(server_dir: Path, target: str) -> dict:
     """Detects a friendly name and description for the active Minecraft server setup."""
+    has_run_sh = (server_dir / "run.sh").exists()
+    has_target = (server_dir / target).exists() if target else False
+    has_any_jar = any(p.is_file() and not p.name.endswith("installer.jar") for p in server_dir.glob("*.jar")) if server_dir.exists() else False
+
+    if not has_run_sh and not has_target and not has_any_jar:
+        return {
+            "name": "Sin motor instalado",
+            "icon": "📦",
+            "type": "none",
+            "runner": "Ninguno",
+            "description": "Aún no has instalado ningún motor de Minecraft. Ve a 'Versiones e Instalador' para descargar uno.",
+        }
+
     target_lower = target.lower()
 
     # Distinguish NeoForge from classic Forge
@@ -111,6 +124,7 @@ def setup_routes(
         metrics["max_ram_gb"] = settings_mgr.get("max_ram_gb", 4)
         metrics["software_info"] = detect_software_info(installer.server_dir, target)
         metrics["installed_version"] = settings_mgr.get("installed_version", "")
+        metrics["is_installed"] = installer.is_server_installed()
         metrics["active_jdk"] = settings_mgr.get("selected_jdk", "auto")
         metrics["tunnel"] = tunnel_mgr.get_status()
         metrics["discord_configured"] = discord_notifier.is_configured()
@@ -141,6 +155,12 @@ def setup_routes(
 
     @app_router.post("/server/start")
     async def start_server():
+        if not installer.is_server_installed():
+            raise HTTPException(
+                status_code=400,
+                detail="Debes configurar e instalar al menos un motor de Minecraft desde la pestaña 'Versiones e Instalador' antes de iniciar el servidor.",
+            )
+
         config_mgr.ensure_eula_accepted()
 
         min_ram = settings_mgr.get("min_ram_gb", 2)

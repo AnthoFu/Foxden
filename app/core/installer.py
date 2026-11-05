@@ -326,6 +326,17 @@ class ServerInstaller:
             else:
                 raise ValueError(f"Unsupported server type: {server_type}")
 
+    def is_server_installed(self) -> bool:
+        """Checks if a valid server executable has been installed."""
+        if not self.server_dir.exists():
+            return False
+        if (self.server_dir / "run.sh").exists():
+            return True
+        for jar in self.server_dir.glob("*.jar"):
+            if not jar.name.endswith("installer.jar"):
+                return True
+        return False
+
     def list_installed_jars(self) -> List[str]:
         """List JAR or executable runner files in server directory."""
         if not self.server_dir.exists():

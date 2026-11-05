@@ -32,6 +32,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const activeSoftwareIcon = document.getElementById("activeSoftwareIcon");
   const activeSoftwareName = document.getElementById("activeSoftwareName");
   const activeSoftwareDesc = document.getElementById("activeSoftwareDesc");
+  const activeSoftwareBadge = document.getElementById("activeSoftwareBadge");
+  const uninstalledBanner = document.getElementById("uninstalledBanner");
+  const btnGoToInstaller = document.getElementById("btnGoToInstaller");
   const selActiveJar = document.getElementById("selActiveJar");
   const btnSetActiveJar = document.getElementById("btnSetActiveJar");
 
@@ -77,6 +80,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (btn.dataset.tab === "tabTunnel") fetchStatus();
     });
   });
+
+  if (btnGoToInstaller) {
+    btnGoToInstaller.addEventListener("click", () => {
+      tabBtns.forEach((b) => {
+        if (b.dataset.tab === "tabVersions") b.click();
+      });
+    });
+  }
 
   // WebSocket
   function connectWebSocket() {
@@ -205,8 +216,28 @@ document.addEventListener("DOMContentLoaded", () => {
         if (activeSoftwareDesc) activeSoftwareDesc.textContent = data.software_info.description || "";
       }
 
-      btnStart.disabled = state !== "STOPPED";
-      btnRestart.disabled = state === "STOPPED";
+      const isInstalled = data.is_installed !== false;
+      if (uninstalledBanner) {
+        uninstalledBanner.style.display = isInstalled ? "none" : "flex";
+      }
+
+      if (activeSoftwareBadge) {
+        if (!isInstalled) {
+          activeSoftwareBadge.textContent = "Instalación Requerida";
+          activeSoftwareBadge.className = "badge badge-warning";
+        } else {
+          activeSoftwareBadge.textContent = "Listo para Iniciar";
+          activeSoftwareBadge.className = "badge badge-success";
+        }
+      }
+
+      btnStart.disabled = (!isInstalled || state !== "STOPPED");
+      if (!isInstalled) {
+        btnStart.title = "Primero debes configurar e instalar un motor de Minecraft desde la pestaña 'Versiones e Instalador'.";
+      } else {
+        btnStart.title = "";
+      }
+      btnRestart.disabled = (!isInstalled || state === "STOPPED");
       btnStop.disabled = state === "STOPPED" || state === "STOPPING";
 
       // Tunnel State Handling
@@ -361,6 +392,9 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("cfgOnlineMode").value = s.online_mode ? "true" : "false";
       document.getElementById("cfgPvp").value = s.pvp ? "true" : "false";
       document.getElementById("cfgWhitelist").value = s.white_list ? "true" : "false";
+      if (document.getElementById("cfgLevelSeed")) {
+        document.getElementById("cfgLevelSeed").value = s.level_seed || "";
+      }
 
       document.getElementById("cfgMinRam").value = data.min_ram_gb || 2;
       document.getElementById("cfgMaxRam").value = data.max_ram_gb || 4;
@@ -405,6 +439,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "online-mode": document.getElementById("cfgOnlineMode").value,
         "pvp": document.getElementById("cfgPvp").value,
         "white-list": document.getElementById("cfgWhitelist").value,
+        "level-seed": document.getElementById("cfgLevelSeed") ? document.getElementById("cfgLevelSeed").value.trim() : "",
       },
       min_ram_gb: parseInt(document.getElementById("cfgMinRam").value, 10),
       max_ram_gb: parseInt(document.getElementById("cfgMaxRam").value, 10),

@@ -72,6 +72,7 @@ Si elegiste **NeoForge**, **Fabric** o **Forge**:
 ### 4. Configurar las Opciones del Servidor
 1. Entra en la pestaña **⚙️ Configuración**.
 2. Personaliza las opciones principales:
+   - **Semilla del Mundo (World Seed):** Configura la semilla deseada antes de iniciar el mapa por primera vez (o déjala vacía para mapa aleatorio).
    - **Modo Online:** Desactívalo si tú o tus amigos usan launchers no oficiales (**No-Premium / Cracked**). Déjalo activado si todos juegan con cuenta oficial comprada de Minecraft.
    - **Memoria RAM:** Asigna la memoria mínima y máxima (recomendado para Codespaces: Mínimo 2 GB, Máximo 4 GB).
    - **Dificultad, Modo de Juego y MOTD** (mensaje de bienvenida en la lista de servidores).
@@ -80,6 +81,8 @@ Si elegiste **NeoForge**, **Fabric** o **Forge**:
 ---
 
 ### 5. Iniciar el Servidor
+> 🛡️ **Protección de arranque:** Por estabilidad, el botón **Iniciar** permanece desactivado hasta que instales un motor en el paso 2.
+
 1. En la esquina superior derecha del panel, haz clic en el botón verde **▶ Iniciar**.
 2. En la pestaña **🖥️ Consola en Vivo**, verás la carga del mapa en tiempo real hasta que aparezca el mensaje:
    ```text

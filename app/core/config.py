@@ -84,4 +84,5 @@ class ConfigManager:
             "pvp": props.get("pvp", "true").lower() == "true",
             "white_list": props.get("white-list", "false").lower() == "true",
             "view_distance": int(props.get("view-distance", 10)),
+            "level_seed": props.get("level-seed", ""),
         }

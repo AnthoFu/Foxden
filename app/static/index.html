@@ -61,6 +61,18 @@
       <button class="tab-btn" data-tab="tabTunnel">🌐 Conexión Pública (Playit.gg)</button>
     </nav>
 
+    <!-- Installation Warning Banner -->
+    <div id="uninstalledBanner" class="alert-banner" style="display: none;">
+      <div class="alert-content">
+        <span class="alert-icon">⚠️</span>
+        <div class="alert-text">
+          <strong>Aún no has instalado un motor de Minecraft.</strong>
+          <span>Debes descargar e instalar al menos una versión antes de poder iniciar el servidor.</span>
+        </div>
+      </div>
+      <button type="button" class="btn btn-sm btn-secondary" id="btnGoToInstaller">Ir a Versiones e Instalador ➔</button>
+    </div>
+
     <!-- Main Content -->
     <main class="main-content">
       <!-- Tab 1: Console -->
@@ -157,6 +169,12 @@
               </select>
             </div>
 
+            <div class="form-group">
+              <label for="cfgLevelSeed">Semilla del Mundo (World Seed)</label>
+              <input type="text" id="cfgLevelSeed" name="level_seed" placeholder="Opcional (déjalo vacío para mapa aleatorio)">
+              <p class="text-muted text-sm mt-1">Configura la semilla de generación antes de iniciar el mapa por primera vez.</p>
+            </div>
+
             <div class="form-group full-width">
               <hr class="divider">
               <h3>Asignación de Memoria RAM</h3>
@@ -239,7 +257,7 @@
                 <p class="software-desc" id="activeSoftwareDesc">Detectando archivos de inicio del servidor</p>
               </div>
             </div>
-            <span class="badge badge-success">Listo para Iniciar</span>
+            <span class="badge badge-success" id="activeSoftwareBadge">Listo para Iniciar</span>
           </div>
 
           <details class="advanced-accordion">
