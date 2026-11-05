@@ -6,8 +6,10 @@ Auto-bootstraps dependencies if running on a fresh environment.
 """
 
 import argparse
+import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 # Self-bootstrap dependencies in fresh environments (like GitHub Codespaces)
@@ -24,6 +26,20 @@ except ImportError:
     else:
         print("❌ Error: No se encontró requirements.txt")
         sys.exit(1)
+
+
+def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.5)
+        return s.connect_ex((host, port)) == 0
+
+
+def free_port(port: int) -> bool:
+    import shutil
+    if shutil.which("fuser"):
+        res = subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True)
+        return res.returncode == 0
+    return False
 
 
 def ensure_frontend():
@@ -49,9 +65,26 @@ def main():
     parser.add_argument("--host", default="0.0.0.0", help="Host IP to bind (default: 0.0.0.0)")
     parser.add_argument("--port", type=int, default=8000, help="Port to listen on (default: 8000)")
     parser.add_argument("--no-reload", dest="reload", action="store_false", default=True, help="Disable auto-reload")
+    parser.add_argument("--kill", "--force", dest="kill", action="store_true", help="Force kill any stale process using the port")
     args = parser.parse_args()
 
     ensure_frontend()
+
+    bind_host = "127.0.0.1" if args.host == "0.0.0.0" else args.host
+    if is_port_in_use(args.port, bind_host):
+        if args.kill:
+            print(f"🔄 Liberando puerto {args.port}...")
+            free_port(args.port)
+            time.sleep(0.5)
+        else:
+            print(f"\n⚠️ El puerto {args.port} ya está en uso por otro proceso (probablemente una instancia anterior).")
+            print(f"👉 Para liberar el puerto, ejecutá en tu terminal:")
+            print(f"   fuser -k {args.port}/tcp")
+            print(f"👉 O ejecutá Foxden forzando la liberación:")
+            print(f"   python run.py --kill")
+            print(f"👉 O iniciá en otro puerto:")
+            print(f"   python run.py --port {args.port + 1}\n")
+            sys.exit(1)
 
     print(f"🦊 Iniciando Foxden en http://localhost:{args.port} (y http://{args.host}:{args.port})")
     print("👉 Presioná Ctrl+C para detener el panel.")
