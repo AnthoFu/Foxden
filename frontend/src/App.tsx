@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Terminal, Sliders, Package, Globe } from 'lucide-react';
 import { Header } from './components/Header';
 import { AlertBanner } from './components/AlertBanner';
+import { TunnelWarningModal } from './components/TunnelWarningModal';
+import { TunnelWarningBanner } from './components/TunnelWarningBanner';
 import { ConsoleTab } from './components/tabs/ConsoleTab';
 import { ConfigTab } from './components/tabs/ConfigTab';
 import { VersionsTab } from './components/tabs/VersionsTab';
@@ -10,10 +12,32 @@ import { useServerStatus } from './hooks/useServerStatus';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'console' | 'config' | 'versions' | 'tunnel'>('console');
-  const { status, loading, actionLoading, error, clearError, refreshStatus, startServer, stopServer, restartServer } =
-    useServerStatus();
+  const [showTunnelModal, setShowTunnelModal] = useState<boolean>(false);
+
+  const {
+    status,
+    loading,
+    actionLoading,
+    error,
+    clearError,
+    refreshStatus,
+    startServer,
+    stopServer,
+    restartServer,
+    startTunnel,
+    startServerAndTunnel,
+  } = useServerStatus();
 
   const isInstalled = status?.is_installed ?? false;
+
+  const handleStartClick = () => {
+    // If tunnel is not running, prompt user with modal
+    if (status?.tunnel?.state !== 'RUNNING') {
+      setShowTunnelModal(true);
+    } else {
+      startServer();
+    }
+  };
 
   const tabs = [
     { id: 'console', label: 'Consola en Vivo', icon: Terminal },
@@ -29,9 +53,24 @@ export const App: React.FC = () => {
         status={status}
         loading={loading}
         actionLoading={actionLoading}
-        onStart={startServer}
+        onStart={handleStartClick}
         onStop={stopServer}
         onRestart={restartServer}
+      />
+
+      {/* Tunnel Warning Modal */}
+      <TunnelWarningModal
+        isOpen={showTunnelModal}
+        onClose={() => setShowTunnelModal(false)}
+        onConfirmServerOnly={() => {
+          setShowTunnelModal(false);
+          startServer();
+        }}
+        onConfirmBoth={async () => {
+          setShowTunnelModal(false);
+          await startServerAndTunnel();
+        }}
+        loading={actionLoading !== null}
       />
 
       {/* Main Container */}
@@ -71,6 +110,18 @@ export const App: React.FC = () => {
         {/* Not Installed Banner Alert */}
         {!isInstalled && activeTab !== 'versions' && (
           <AlertBanner onGoToInstaller={() => setActiveTab('versions')} />
+        )}
+
+        {/* Server Running Without Tunnel Warning Banner */}
+        {(status?.state === 'RUNNING' || status?.state === 'STARTING') &&
+          status?.tunnel?.state !== 'RUNNING' &&
+          activeTab !== 'tunnel' && (
+            <TunnelWarningBanner
+              tunnelState={status?.tunnel?.state}
+              onStartTunnel={startTunnel}
+              onGoToTunnelTab={() => setActiveTab('tunnel')}
+              loading={actionLoading === 'tunnel'}
+            />
         )}
 
         {/* Tab Content */}

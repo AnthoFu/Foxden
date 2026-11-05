@@ -63,6 +63,16 @@ async def handle_server_ready():
     props = config_manager.read_properties()
     motd = props.get("motd", "A Minecraft Server")
     ip = tunnel_manager.public_address or settings_manager.get("public_ip_alias")
+
+    if tunnel_manager.state != "RUNNING":
+        notice = (
+            "[Foxden] ------------------------------------------------------------------\n"
+            "[Foxden] ⚠️ AVISO: El servidor de Minecraft está listo, pero el TÚNEL PÚBLICO (Playit.gg) está APAGADO.\n"
+            "[Foxden] 👉 Si estás en GitHub Codespaces o en la nube, nadie podrá conectarse hasta activar el túnel desde el panel.\n"
+            "[Foxden] ------------------------------------------------------------------"
+        )
+        process_manager._broadcast_log(notice)
+
     await discord_notifier.notify_server_online(
         software_name=info["name"],
         version=settings_manager.get("installed_version", "26.3"),

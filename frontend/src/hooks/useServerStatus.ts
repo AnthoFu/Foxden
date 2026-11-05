@@ -70,6 +70,34 @@ export function useServerStatus() {
     }
   };
 
+  const startTunnel = async () => {
+    setActionLoading('tunnel');
+    setError(null);
+    try {
+      await api.startTunnel();
+      await refreshStatus();
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar el túnel');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const startServerAndTunnel = async () => {
+    setActionLoading('start');
+    setError(null);
+    try {
+      // Launch tunnel first so address starts resolving, then start minecraft server
+      await api.startTunnel().catch((e) => console.warn('Tunnel launch warning:', e));
+      await api.startServer();
+      await refreshStatus();
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar servidor y túnel');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   return {
     status,
     loading,
@@ -80,5 +108,7 @@ export function useServerStatus() {
     startServer,
     stopServer,
     restartServer,
+    startTunnel,
+    startServerAndTunnel,
   };
 }
