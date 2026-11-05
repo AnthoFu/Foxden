@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-dark-900 text-slate-100 font-sans;
+  }
+}
+
+/* Custom modern scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f141c;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27364b;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6;
+}
+
+/* Terminal ANSI / colors styling */
+.terminal-line {
+  font-family: 'Fira Code', monospace;
+  line-height: 1.45;
+  word-break: break-all;
+  white-space: pre-wrap;
+}

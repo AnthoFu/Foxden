@@ -21,6 +21,7 @@ from app.core.tunnel import PlayitTunnelManager
 BASE_DIR = Path(__file__).resolve().parent.parent
 SERVER_DIR = BASE_DIR / "servidor_minecraft"
 STATIC_DIR = BASE_DIR / "app" / "static"
+FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 
 app = FastAPI(title="Foxden - Autonomous Minecraft Server Manager", version="1.0.0")
 
@@ -98,13 +99,39 @@ setup_console_websocket(ws_router, process_manager)
 app.include_router(api_router)
 app.include_router(ws_router)
 
-# Mount static files
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+# Mount static files & modern frontend assets
+if (FRONTEND_DIST / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 @app.get("/")
 async def serve_index():
-    return FileResponse(STATIC_DIR / "index.html")
+    if (FRONTEND_DIST / "index.html").exists():
+        return FileResponse(FRONTEND_DIST / "index.html")
+    if (STATIC_DIR / "index.html").exists():
+        return FileResponse(STATIC_DIR / "index.html")
+    return {"message": "Foxden API running"}
+
+
+@app.get("/{full_path:path}")
+async def serve_spa_fallback(full_path: str):
+    if full_path.startswith("api") or full_path.startswith("ws"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    file_path = FRONTEND_DIST / full_path
+    if file_path.is_file():
+        return FileResponse(file_path)
+
+    if (FRONTEND_DIST / "index.html").exists():
+        return FileResponse(FRONTEND_DIST / "index.html")
+    if (STATIC_DIR / "index.html").exists():
+        return FileResponse(STATIC_DIR / "index.html")
+    from fastapi import HTTPException
+    raise HTTPException(status_code=404, detail="Not Found")
 
 
 @app.on_event("shutdown")
