@@ -46,6 +46,10 @@ playit.toml
 # Minecraft runtime data - keep template pristine!
 servidor_minecraft/*
 !servidor_minecraft/.gitkeep
+!servidor_minecraft/mods/
+!servidor_minecraft/mods/.gitkeep
+!servidor_minecraft/mods/README.md
+servidor_minecraft/mods/*.jar
 
 # Archives & logs
 *.log

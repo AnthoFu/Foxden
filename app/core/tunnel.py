@@ -44,7 +44,7 @@ class PlayitTunnelManager:
         asset_name = "playit-linux-aarch64" if "arm" in arch or "aarch64" in arch else "playit-linux-amd64"
         download_url = f"{self.PLAYIT_RELEASES_URL}/{asset_name}"
 
-        self.logs.append(f"[PLAYIT] Downloading playit agent from {download_url}...")
+        self.logs.append(f"[PLAYIT] Descargando agente Playit desde {download_url}...")
         async with httpx.AsyncClient(timeout=45.0, follow_redirects=True) as client:
             async with client.stream("GET", download_url) as res:
                 res.raise_for_status()
@@ -53,7 +53,7 @@ class PlayitTunnelManager:
                         f.write(chunk)
 
         os.chmod(str(self.binary_path), 0o755)
-        self.logs.append("[PLAYIT] Playit binary installed successfully.")
+        self.logs.append("[PLAYIT] Agente Playit instalado correctamente.")
         return self.binary_path
 
     async def start(self) -> bool:
@@ -64,14 +64,14 @@ class PlayitTunnelManager:
         try:
             bin_path = await self.ensure_binary_installed()
         except Exception as e:
-            self.logs.append(f"[PLAYIT] Failed to install binary: {e}")
+            self.logs.append(f"[PLAYIT] Error al instalar el binario: {e}")
             return False
 
         self.state = "STARTING"
         self.claim_url = None
         self.public_address = None
         self._refresh_attempted = False
-        self.logs.append(f"[PLAYIT] Starting tunnel process with config: {self.config_file}")
+        self.logs.append(f"[PLAYIT] Iniciando proceso de túnel con configuración: {self.config_file}")
 
         cmd = [str(bin_path), "--secret_path", str(self.config_file), "--stdout", "start"]
         try:
@@ -84,7 +84,7 @@ class PlayitTunnelManager:
             )
         except Exception as e:
             self.state = "STOPPED"
-            self.logs.append(f"[PLAYIT] Failed to launch process: {e}")
+            self.logs.append(f"[PLAYIT] Error al iniciar el proceso: {e}")
             return False
 
         self._reader_task = asyncio.create_task(self._read_tunnel_output())
@@ -127,7 +127,7 @@ class PlayitTunnelManager:
         await self.process.wait()
         self.state = "STOPPED"
         self.process = None
-        self.logs.append("[PLAYIT] Tunnel process exited.")
+        self.logs.append("[PLAYIT] El proceso del túnel se detuvo.")
 
     async def _delayed_refresh_address(self) -> None:
         """Waits briefly for tunnel registration before querying tunnels list once."""

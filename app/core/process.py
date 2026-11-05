@@ -60,8 +60,8 @@ class MinecraftProcess:
 
         self.state = ProcessState.STARTING
         self.start_time = time.time()
-        self._broadcast_log(f"[FOXDEN] Starting server in {self.server_dir}...")
-        self._broadcast_log(f"[FOXDEN] Command: {' '.join(self.launch_command)}")
+        self._broadcast_log(f"[FOXDEN] Iniciando servidor en {self.server_dir}...")
+        self._broadcast_log(f"[FOXDEN] Comando ejecutado: {' '.join(self.launch_command)}")
 
         try:
             self.process = await asyncio.create_subprocess_exec(
@@ -74,7 +74,7 @@ class MinecraftProcess:
             )
         except Exception as e:
             self.state = ProcessState.STOPPED
-            self._broadcast_log(f"[FOXDEN] Failed to spawn process: {e}")
+            self._broadcast_log(f"[FOXDEN] Error al iniciar el proceso del servidor: {e}")
             return False
 
         self._reader_task = asyncio.create_task(self._read_output())
@@ -96,12 +96,12 @@ class MinecraftProcess:
             if self.state == ProcessState.STARTING:
                 if 'Done (' in line and ')! For help, type "help"' in line or "Timings Reset" in line:
                     self.state = ProcessState.RUNNING
-                    self._broadcast_log("[FOXDEN] Server is now RUNNING and ready for players!")
+                    self._broadcast_log("[FOXDEN] ¡El servidor está EN LÍNEA y listo para recibir jugadores!")
 
         return_code = await self.process.wait()
         self.state = ProcessState.STOPPED
         self.process = None
-        self._broadcast_log(f"[FOXDEN] Server process exited with code {return_code}.")
+        self._broadcast_log(f"[FOXDEN] El proceso del servidor finalizó con código {return_code}.")
 
     async def send_command(self, command: str) -> bool:
         if not self.process or self.process.returncode is not None or not self.process.stdin:
@@ -117,7 +117,7 @@ class MinecraftProcess:
             self._broadcast_log(f"> {clean_cmd}")
             return True
         except Exception as e:
-            self._broadcast_log(f"[FOXDEN] Error sending command: {e}")
+            self._broadcast_log(f"[FOXDEN] Error al enviar comando: {e}")
             return False
 
     async def stop(self, timeout: float = 25.0) -> bool:
@@ -125,14 +125,14 @@ class MinecraftProcess:
             return False
 
         self.state = ProcessState.STOPPING
-        self._broadcast_log("[FOXDEN] Stopping server gracefully (sending 'stop')...")
+        self._broadcast_log("[FOXDEN] Deteniendo el servidor de forma segura (enviando 'stop')...")
         await self.send_command("stop")
 
         # Wait for graceful shutdown
         start_wait = time.time()
         while self.process and self.process.returncode is None:
             if time.time() - start_wait > timeout:
-                self._broadcast_log("[FOXDEN] Graceful shutdown timed out. Terminating process...")
+                self._broadcast_log("[FOXDEN] Tiempo de espera agotado para el cierre seguro. Forzando detención del proceso...")
                 try:
                     self.process.terminate()
                 except ProcessLookupError:
