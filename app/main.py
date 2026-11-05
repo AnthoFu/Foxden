@@ -41,6 +41,7 @@ settings_manager = SettingsManager(base_dir=BASE_DIR)
 discord_notifier = DiscordNotifier(
     webhook_url=settings_manager.get("discord_webhook_url"),
     show_ip=settings_manager.get("discord_show_ip", True),
+    enabled=settings_manager.get("discord_enabled", True),
 )
 
 
@@ -72,7 +73,11 @@ async def handle_server_ready():
 async def handle_server_stopped(uptime_seconds: float, return_code: int):
     uptime_str = format_uptime(uptime_seconds)
     was_crash = (return_code != 0)
-    await discord_notifier.notify_server_stopped(uptime_str=uptime_str, was_crash=was_crash)
+    await discord_notifier.notify_server_stopped(
+        uptime_str=uptime_str,
+        was_crash=was_crash,
+        return_code=return_code,
+    )
 
 
 process_manager.on_server_ready = handle_server_ready

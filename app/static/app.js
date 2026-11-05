@@ -399,12 +399,16 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("cfgMinRam").value = data.min_ram_gb || 2;
       document.getElementById("cfgMaxRam").value = data.max_ram_gb || 4;
 
+      if (document.getElementById("cfgDiscordEnabled")) {
+        document.getElementById("cfgDiscordEnabled").checked = data.discord_enabled !== false;
+      }
       if (document.getElementById("cfgDiscordWebhook")) {
         document.getElementById("cfgDiscordWebhook").value = data.discord_webhook_url || "";
       }
       if (document.getElementById("cfgDiscordShowIp")) {
         document.getElementById("cfgDiscordShowIp").checked = data.discord_show_ip !== false;
       }
+      updateDiscordVisibility();
 
       // Load installed JDKs
       const jdkRes = await fetch("/api/jdks");
@@ -444,6 +448,7 @@ document.addEventListener("DOMContentLoaded", () => {
       min_ram_gb: parseInt(document.getElementById("cfgMinRam").value, 10),
       max_ram_gb: parseInt(document.getElementById("cfgMaxRam").value, 10),
       selected_jdk: cfgJdk.value,
+      discord_enabled: document.getElementById("cfgDiscordEnabled") ? document.getElementById("cfgDiscordEnabled").checked : true,
       discord_webhook_url: document.getElementById("cfgDiscordWebhook") ? document.getElementById("cfgDiscordWebhook").value.trim() : "",
       discord_show_ip: document.getElementById("cfgDiscordShowIp") ? document.getElementById("cfgDiscordShowIp").checked : true,
     };
@@ -535,6 +540,27 @@ document.addEventListener("DOMContentLoaded", () => {
         btnToggleWebhookVisibility.textContent = "👁️";
       }
     });
+  }
+
+  const cfgDiscordEnabled = document.getElementById("cfgDiscordEnabled");
+  const discordWebhookGroup = document.getElementById("discordWebhookGroup");
+  const discordPrivacyGroup = document.getElementById("discordPrivacyGroup");
+
+  function updateDiscordVisibility() {
+    if (!cfgDiscordEnabled) return;
+    const isEnabled = cfgDiscordEnabled.checked;
+    if (discordWebhookGroup) {
+      discordWebhookGroup.style.opacity = isEnabled ? "1" : "0.5";
+      discordWebhookGroup.style.pointerEvents = isEnabled ? "auto" : "none";
+    }
+    if (discordPrivacyGroup) {
+      discordPrivacyGroup.style.opacity = isEnabled ? "1" : "0.5";
+      discordPrivacyGroup.style.pointerEvents = isEnabled ? "auto" : "none";
+    }
+  }
+
+  if (cfgDiscordEnabled) {
+    cfgDiscordEnabled.addEventListener("change", updateDiscordVisibility);
   }
 
   // Versions tab

@@ -211,10 +211,18 @@
             <div class="form-group full-width">
               <hr class="divider">
               <h3>🔔 Notificaciones de Discord</h3>
-              <p class="text-muted text-sm">Recibe alertas automáticas en tu canal de Discord cuando el servidor se encienda o se detenga.</p>
+              <p class="text-muted text-sm">Recibe alertas automáticas en tu canal de Discord cuando el servidor se encienda, se detenga o sufra una caída.</p>
             </div>
 
             <div class="form-group full-width">
+              <label class="checkbox-container">
+                <input type="checkbox" id="cfgDiscordEnabled" checked>
+                <span><strong>Activar notificaciones automáticas de Discord</strong></span>
+              </label>
+              <p class="text-muted text-sm mt-1">Si desactivas esta opción, Foxden pausará el envío de mensajes sin necesidad de borrar tu URL de webhook.</p>
+            </div>
+
+            <div class="form-group full-width" id="discordWebhookGroup">
               <label for="cfgDiscordWebhook">URL del Webhook de Discord</label>
               <div class="action-inline">
                 <input type="password" id="cfgDiscordWebhook" placeholder="https://discord.com/api/webhooks/..." class="flex-grow">
@@ -224,7 +232,7 @@
               <span id="discordTestFeedback" class="text-sm mt-1" style="display: block;"></span>
             </div>
 
-            <div class="form-group full-width">
+            <div class="form-group full-width" id="discordPrivacyGroup">
               <label class="checkbox-container">
                 <input type="checkbox" id="cfgDiscordShowIp" checked>
                 <span>Incluir la dirección IP pública (Playit) en las notificaciones</span>

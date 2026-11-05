@@ -28,6 +28,7 @@ class ConfigUpdateRequest(BaseModel):
     max_ram_gb: Optional[int] = Field(default=None, ge=1, le=64)
     target_jar: Optional[str] = Field(default=None)
     selected_jdk: Optional[str] = Field(default=None)
+    discord_enabled: Optional[bool] = Field(default=None)
     discord_webhook_url: Optional[str] = Field(default=None)
     discord_show_ip: Optional[bool] = Field(default=None)
     public_ip_alias: Optional[str] = Field(default=None)
@@ -127,6 +128,7 @@ def setup_routes(
         metrics["is_installed"] = installer.is_server_installed()
         metrics["active_jdk"] = settings_mgr.get("selected_jdk", "auto")
         metrics["tunnel"] = tunnel_mgr.get_status()
+        metrics["discord_enabled"] = discord_notifier.enabled
         metrics["discord_configured"] = discord_notifier.is_configured()
         return metrics
 
@@ -234,6 +236,7 @@ def setup_routes(
             "max_ram_gb": settings_mgr.get("max_ram_gb", 4),
             "target_jar": target,
             "selected_jdk": settings_mgr.get("selected_jdk", "auto"),
+            "discord_enabled": settings_mgr.get("discord_enabled", True),
             "discord_webhook_url": discord_notifier.webhook_url or "",
             "discord_show_ip": discord_notifier.show_ip,
             "public_ip_alias": settings_mgr.get("public_ip_alias", ""),
@@ -255,6 +258,9 @@ def setup_routes(
             updates["target_jar"] = req.target_jar
         if req.selected_jdk is not None:
             updates["selected_jdk"] = req.selected_jdk
+        if req.discord_enabled is not None:
+            updates["discord_enabled"] = req.discord_enabled
+            discord_notifier.enabled = bool(req.discord_enabled)
         if req.discord_webhook_url is not None:
             updates["discord_webhook_url"] = req.discord_webhook_url.strip()
             discord_notifier.webhook_url = req.discord_webhook_url.strip() or None
