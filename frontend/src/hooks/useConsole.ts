@@ -1,7 +1,12 @@
+/**
+ * Hook para la consola interactiva por WebSocket de Foxden.
+ * Administra el buffer de logs, auto-scroll, historial de comandos y reconexión automática.
+ */
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../services/api';
 
-export function useConsole() {
+export function useConsola() {
   const [logs, setLogs] = useState<string[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [autoscroll, setAutoscroll] = useState<boolean>(true);
@@ -13,36 +18,36 @@ export function useConsole() {
   const terminalEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
-    let reconnectTimeout: number;
+    let montado = true;
+    let tiempoReconexion: number;
 
-    const connect = () => {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws/console`;
+    const conectarWebSocket = () => {
+      const protocolo = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const urlWs = `${protocolo}//${window.location.host}/ws/console`;
 
-      const ws = new WebSocket(wsUrl);
+      const ws = new WebSocket(urlWs);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        if (!isMounted) return;
+        if (!montado) return;
         setIsConnected(true);
       };
 
-      ws.onmessage = (event) => {
-        if (!isMounted) return;
+      ws.onmessage = (evento) => {
+        if (!montado) return;
         setLogs((prev) => {
-          const next = [...prev, event.data];
-          if (next.length > 1500) {
-            return next.slice(next.length - 1500);
+          const siguiente = [...prev, evento.data];
+          if (siguiente.length > 1500) {
+            return siguiente.slice(siguiente.length - 1500);
           }
-          return next;
+          return siguiente;
         });
       };
 
       ws.onclose = () => {
-        if (!isMounted) return;
+        if (!montado) return;
         setIsConnected(false);
-        reconnectTimeout = window.setTimeout(connect, 3000);
+        tiempoReconexion = window.setTimeout(conectarWebSocket, 3000);
       };
 
       ws.onerror = () => {
@@ -52,11 +57,11 @@ export function useConsole() {
       };
     };
 
-    connect();
+    conectarWebSocket();
 
     return () => {
-      isMounted = false;
-      clearTimeout(reconnectTimeout);
+      montado = false;
+      clearTimeout(tiempoReconexion);
       if (wsRef.current) {
         wsRef.current.close();
       }
@@ -69,18 +74,18 @@ export function useConsole() {
     }
   }, [logs, autoscroll]);
 
-  const sendConsoleCommand = useCallback(
-    async (cmdToSend?: string) => {
-      const text = (cmdToSend ?? command).trim();
-      if (!text) return;
+  const enviarComandoConsola = useCallback(
+    async (cmdAEnviar?: string) => {
+      const texto = (cmdAEnviar ?? command).trim();
+      if (!texto) return;
 
-      // Add to command history
-      setHistory((prev) => [...prev, text]);
+      // Registrar en el historial para navegación con flechas
+      setHistory((prev) => [...prev, texto]);
       setHistoryIndex(-1);
       setCommand('');
 
       try {
-        await api.sendCommand(text);
+        await api.enviarComando(texto);
       } catch (err: any) {
         setLogs((prev) => [...prev, `[FOXDEN] Error al enviar comando: ${err.message}`]);
       }
@@ -88,28 +93,28 @@ export function useConsole() {
     [command]
   );
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const manejarTeclas = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (history.length === 0) return;
-      const nextIndex = historyIndex === -1 ? history.length - 1 : Math.max(0, historyIndex - 1);
-      setHistoryIndex(nextIndex);
-      setCommand(history[nextIndex]);
+      const siguienteIndice = historyIndex === -1 ? history.length - 1 : Math.max(0, historyIndex - 1);
+      setHistoryIndex(siguienteIndice);
+      setCommand(history[siguienteIndice]);
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (history.length === 0 || historyIndex === -1) return;
-      const nextIndex = historyIndex + 1;
-      if (nextIndex >= history.length) {
+      const siguienteIndice = historyIndex + 1;
+      if (siguienteIndice >= history.length) {
         setHistoryIndex(-1);
         setCommand('');
       } else {
-        setHistoryIndex(nextIndex);
-        setCommand(history[nextIndex]);
+        setHistoryIndex(siguienteIndice);
+        setCommand(history[siguienteIndice]);
       }
     }
   };
 
-  const clearLogs = () => setLogs([]);
+  const limpiarRegistros = () => setLogs([]);
 
   return {
     logs,
@@ -119,8 +124,16 @@ export function useConsole() {
     command,
     setCommand,
     terminalEndRef,
-    sendConsoleCommand,
-    handleKeyDown,
-    clearLogs,
+    enviarComandoConsola,
+    manejarTeclas,
+    limpiarRegistros,
+
+    // Alias en inglés para compatibilidad
+    sendConsoleCommand: enviarComandoConsola,
+    handleKeyDown: manejarTeclas,
+    clearLogs: limpiarRegistros,
   };
 }
+
+// Alias de compatibilidad
+export const useConsole = useConsola;

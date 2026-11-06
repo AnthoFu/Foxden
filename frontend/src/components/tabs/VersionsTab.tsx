@@ -22,48 +22,48 @@ export const VersionsTab: React.FC<VersionsTabProps> = ({ status, onInstalled })
   const [manualJar, setManualJar] = useState<string>('');
   const [settingJar, setSettingJar] = useState<boolean>(false);
 
-  // Load versions whenever serverType or includeSnapshots changes
+  // Cargar versiones cada vez que cambie serverType o includeSnapshots
   useEffect(() => {
-    async function loadCatalog() {
+    async function cargarCatalogo() {
       setLoadingVersions(true);
       try {
-        const res = await api.getVersions(serverType, includeSnapshots);
+        const res = await api.obtenerVersiones(serverType, includeSnapshots);
         setVersions(res.versions || []);
         if (res.versions && res.versions.length > 0) {
           setSelectedVersion(res.versions[0]);
         }
       } catch (err) {
-        console.error('Failed to load version catalog:', err);
+        console.error('Error al cargar catálogo de versiones:', err);
       } finally {
         setLoadingVersions(false);
       }
     }
-    loadCatalog();
+    cargarCatalogo();
   }, [serverType, includeSnapshots]);
 
-  // Load installed jars
+  // Cargar ejecutables instalados
   useEffect(() => {
-    async function loadJars() {
+    async function cargarJars() {
       try {
-        const res = await api.getInstalledJars();
+        const res = await api.obtenerJarsInstalados();
         setInstalledJars(res.jars || []);
         if (status?.target_jar) {
           setManualJar(status.target_jar);
         }
       } catch (err) {
-        console.error('Failed to load jars:', err);
+        console.error('Error al cargar lista de JARs:', err);
       }
     }
-    loadJars();
+    cargarJars();
   }, [status?.target_jar]);
 
-  const handleDownload = async () => {
+  const manejarDescarga = async () => {
     if (!selectedVersion) return;
     setDownloading(true);
     setFeedback(null);
 
     try {
-      const res = await api.downloadVersion(serverType, selectedVersion);
+      const res = await api.descargarVersion(serverType, selectedVersion);
       setFeedback({
         type: 'success',
         msg: `✓ ¡${res.software_info?.name || serverType.toUpperCase()} ${selectedVersion} instalado con éxito y listo para iniciar!`,
@@ -79,11 +79,11 @@ export const VersionsTab: React.FC<VersionsTabProps> = ({ status, onInstalled })
     }
   };
 
-  const handleSetManualJar = async () => {
+  const manejarEstablecerJarManual = async () => {
     if (!manualJar) return;
     setSettingJar(true);
     try {
-      await api.updateConfig({ target_jar: manualJar });
+      await api.actualizarConfiguracion({ target_jar: manualJar });
       onInstalled();
       alert(`Ejecutable activo establecido en: ${manualJar}`);
     } catch (err: any) {
@@ -160,7 +160,7 @@ export const VersionsTab: React.FC<VersionsTabProps> = ({ status, onInstalled })
               </select>
               <button
                 type="button"
-                onClick={handleSetManualJar}
+                onClick={manejarEstablecerJarManual}
                 disabled={settingJar || !manualJar}
                 className="px-3 py-2 bg-dark-700 hover:bg-dark-750 text-slate-200 rounded-lg text-xs font-semibold border border-dark-700 disabled:opacity-40"
               >
@@ -282,7 +282,7 @@ export const VersionsTab: React.FC<VersionsTabProps> = ({ status, onInstalled })
           <div className="pt-3 flex flex-col sm:flex-row sm:items-center gap-4">
             <button
               type="button"
-              onClick={handleDownload}
+              onClick={manejarDescarga}
               disabled={downloading || !selectedVersion || loadingVersions}
               className="flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-sm shadow-lg transition-all disabled:opacity-40 disabled:active:scale-100"
             >

@@ -1,20 +1,30 @@
 """
-Discord webhook notifier for Foxden.
-Sends rich embed notifications for server events (online, stopped, crash, test).
+Módulo de notificaciones vía Webhook de Discord para Foxden.
+Envía mensajes enriquecidos (embeds) para eventos del servidor:
+encendido, apagado, caída inesperada y mensaje de prueba.
 """
 
 from datetime import datetime, timezone
 from typing import List, Optional
 import httpx
 
-FOX_AVATAR_URL = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f98a.png"
-GREEN_DOT_ICON = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f7e2.png"
-RED_DOT_ICON = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f534.png"
-GRAY_DOT_ICON = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/26aa.png"
-TEST_TUBE_ICON = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f9ea.png"
+URL_AVATAR_ZORRO = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f98a.png"
+ICONO_PUNTO_VERDE = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f7e2.png"
+ICONO_PUNTO_ROJO = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f534.png"
+ICONO_PUNTO_GRIS = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/26aa.png"
+ICONO_TUBO_ENSAYO = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f9ea.png"
+
+# Alias para compatibilidad
+FOX_AVATAR_URL = URL_AVATAR_ZORRO
+GREEN_DOT_ICON = ICONO_PUNTO_VERDE
+RED_DOT_ICON = ICONO_PUNTO_ROJO
+GRAY_DOT_ICON = ICONO_PUNTO_GRIS
+TEST_TUBE_ICON = ICONO_TUBO_ENSAYO
 
 
 class DiscordNotifier:
+    """Administrador de notificaciones y alertas en Discord."""
+
     def __init__(
         self,
         webhook_url: Optional[str] = None,
@@ -25,7 +35,8 @@ class DiscordNotifier:
         self.show_ip = bool(show_ip)
         self.enabled = bool(enabled)
 
-    def is_configured(self) -> bool:
+    def esta_configurado(self) -> bool:
+        """Comprueba si el webhook de Discord está activo y configurado con una URL válida."""
         if not self.enabled or not self.webhook_url:
             return False
         return (
@@ -33,149 +44,160 @@ class DiscordNotifier:
             or self.webhook_url.startswith("https://discordapp.com/api/webhooks/")
         )
 
-    async def send_embed(
+    async def enviar_embed(
         self,
-        title: str,
-        description: str,
+        titulo: str,
+        descripcion: str,
         color: int,
-        fields: Optional[List[dict]] = None,
-        thumbnail_url: Optional[str] = None,
-        custom_webhook: Optional[str] = None,
+        campos: Optional[List[dict]] = None,
+        url_miniatura: Optional[str] = None,
+        webhook_personalizado: Optional[str] = None,
     ) -> bool:
-        url = custom_webhook or self.webhook_url
+        """Construye y despacha un mensaje embebido enriquecido a la API de Discord."""
+        url = webhook_personalizado or self.webhook_url
         if not url:
             return False
 
         embed = {
             "author": {
                 "name": "Foxden • Minecraft Server Manager",
-                "icon_url": FOX_AVATAR_URL,
+                "icon_url": URL_AVATAR_ZORRO,
             },
-            "title": title,
-            "description": description,
+            "title": titulo,
+            "description": descripcion,
             "color": color,
-            "fields": fields or [],
+            "fields": campos or [],
             "footer": {
                 "text": "Foxden 🦊 • Servidor de Minecraft",
-                "icon_url": FOX_AVATAR_URL,
+                "icon_url": URL_AVATAR_ZORRO,
             },
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
-        if thumbnail_url:
-            embed["thumbnail"] = {"url": thumbnail_url}
+        if url_miniatura:
+            embed["thumbnail"] = {"url": url_miniatura}
 
-        payload = {
+        carga = {
             "username": "Foxden 🦊",
-            "avatar_url": FOX_AVATAR_URL,
+            "avatar_url": URL_AVATAR_ZORRO,
             "embeds": [embed],
         }
 
         try:
-            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-                res = await client.post(url, json=payload)
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as cliente:
+                res = await cliente.post(url, json=carga)
                 return res.status_code in (200, 204)
         except Exception:
             return False
 
-    async def notify_server_online(
+    async def notificar_servidor_en_linea(
         self,
-        software_name: str,
+        nombre_software: str,
         version: str,
-        public_ip: Optional[str] = None,
+        ip_publica: Optional[str] = None,
         motd: Optional[str] = None,
     ) -> bool:
-        if not self.is_configured():
+        """Envía notificación de servidor encendido y listo para jugar."""
+        if not self.esta_configurado():
             return False
 
-        fields = [
-            {"name": "🎮 Motor / Cargador", "value": f"**{software_name}**", "inline": True},
+        campos = [
+            {"name": "🎮 Motor / Cargador", "value": f"**{nombre_software}**", "inline": True},
             {"name": "📦 Versión de Minecraft", "value": f"**{version}**", "inline": True},
         ]
         if motd:
-            fields.append({"name": "📜 Mensaje del Día (MOTD)", "value": f"*{motd}*", "inline": False})
+            campos.append({"name": "📜 Mensaje del Día (MOTD)", "value": f"*{motd}*", "inline": False})
 
-        if self.show_ip and public_ip:
-            fields.append({
+        if self.show_ip and ip_publica:
+            campos.append({
                 "name": "🌐 Dirección IP para Conectarse",
-                "value": f"```ini\n[ Dirección IP ]\n{public_ip}\n```\n👉 *Pega esta dirección en Minecraft > Multijugador > Conexión Directa*",
+                "value": f"```ini\n[ Dirección IP ]\n{ip_publica}\n```\n👉 *Pega esta dirección en Minecraft > Multijugador > Conexión Directa*",
                 "inline": False,
             })
         elif not self.show_ip:
-            fields.append({
+            campos.append({
                 "name": "🌐 Conexión al Servidor",
                 "value": "🔒 *La dirección IP pública se encuentra oculta por configuración de privacidad.*",
                 "inline": False,
             })
 
-        return await self.send_embed(
-            title="🟢 ¡Servidor de Minecraft En Línea!",
-            description="El servidor ha iniciado con éxito y ya está listo para recibir jugadores.",
-            color=0x22C55E,  # Emerald Green
-            fields=fields,
-            thumbnail_url=GREEN_DOT_ICON,
+        return await self.enviar_embed(
+            titulo="🟢 ¡Servidor de Minecraft En Línea!",
+            descripcion="El servidor ha iniciado con éxito y ya está listo para recibir jugadores.",
+            color=0x22C55E,  # Verde esmeralda
+            campos=campos,
+            url_miniatura=ICONO_PUNTO_VERDE,
         )
 
-    async def notify_server_stopped(
+    async def notificar_servidor_detenido(
         self,
-        uptime_str: str,
-        was_crash: bool = False,
-        return_code: Optional[int] = None,
+        tiempo_activo_str: str,
+        fue_caida: bool = False,
+        codigo_salida: Optional[int] = None,
     ) -> bool:
-        if not self.is_configured():
+        """Envía notificación de servidor detenido de forma normal o por caída inesperada."""
+        if not self.esta_configurado():
             return False
 
-        if was_crash:
-            code_str = f"Código {return_code}" if return_code is not None else "Inesperado"
-            return await self.send_embed(
-                title="💥 Servidor Caído / Detenido Inesperadamente",
-                description="⚠️ El proceso del servidor de Minecraft finalizó de manera anormal. Revisa la consola en el panel para ver el registro del error.",
-                color=0xEF4444,  # Vivid Red
-                fields=[
-                    {"name": "⏱️ Tiempo en línea previo", "value": f"**{uptime_str}**", "inline": True},
-                    {"name": "🚨 Estado de Salida", "value": f"**{code_str}**", "inline": True},
+        if fue_caida:
+            str_codigo = f"Código {codigo_salida}" if codigo_salida is not None else "Inesperado"
+            return await self.enviar_embed(
+                titulo="💥 Servidor Caído / Detenido Inesperadamente",
+                descripcion="⚠️ El proceso del servidor de Minecraft finalizó de manera anormal. Revisa la consola en el panel para ver el registro del error.",
+                color=0xEF4444,  # Rojo
+                campos=[
+                    {"name": "⏱️ Tiempo en línea previo", "value": f"**{tiempo_activo_str}**", "inline": True},
+                    {"name": "🚨 Estado de Salida", "value": f"**{str_codigo}**", "inline": True},
                 ],
-                thumbnail_url=RED_DOT_ICON,
+                url_miniatura=ICONO_PUNTO_ROJO,
             )
 
-        return await self.send_embed(
-            title="🛑 Servidor de Minecraft Detenido",
-            description="El servidor se ha detenido y guardado de forma segura.",
-            color=0x64748B,  # Slate Gray
-            fields=[
-                {"name": "⏱️ Tiempo total de actividad", "value": f"**{uptime_str}**", "inline": True},
+        return await self.enviar_embed(
+            titulo="🛑 Servidor de Minecraft Detenido",
+            descripcion="El servidor se ha detenido y guardado de forma segura.",
+            color=0x64748B,  # Gris
+            campos=[
+                {"name": "⏱️ Tiempo total de actividad", "value": f"**{tiempo_activo_str}**", "inline": True},
                 {"name": "📊 Estado", "value": "`Cerrado con éxito`", "inline": True},
             ],
-            thumbnail_url=GRAY_DOT_ICON,
+            url_miniatura=ICONO_PUNTO_GRIS,
         )
 
-    async def send_test_message(
+    async def enviar_mensaje_prueba(
         self,
-        public_ip: Optional[str] = None,
-        custom_webhook: Optional[str] = None,
-        custom_show_ip: Optional[bool] = None,
+        ip_publica: Optional[str] = None,
+        webhook_personalizado: Optional[str] = None,
+        mostrar_ip_personalizado: Optional[bool] = None,
     ) -> bool:
-        show_ip = self.show_ip if custom_show_ip is None else custom_show_ip
-        fields = [
+        """Envía un mensaje de prueba al webhook para verificar la integración."""
+        mostrar_ip = self.show_ip if mostrar_ip_personalizado is None else mostrar_ip_personalizado
+        campos = [
             {"name": "🔔 Estado de Alertas", "value": "✅ Conexión con Discord establecida exitosamente.", "inline": True},
             {
                 "name": "🔒 Privacidad de IP",
-                "value": "🌐 Visible en alertas" if show_ip else "🔒 Oculta en alertas",
+                "value": "🌐 Visible en alertas" if mostrar_ip else "🔒 Oculta en alertas",
                 "inline": True,
             },
         ]
-        if show_ip and public_ip:
-            fields.append({
+        if mostrar_ip and ip_publica:
+            campos.append({
                 "name": "🔍 Ejemplo de formato de IP",
-                "value": f"```ini\n[ Dirección IP ]\n{public_ip}\n```",
+                "value": f"```ini\n[ Dirección IP ]\n{ip_publica}\n```",
                 "inline": False,
             })
 
-        return await self.send_embed(
-            title="🧪 Prueba de Notificación de Foxden",
-            description="¡Excelente! Las notificaciones de tu servidor **Foxden** están listas y configuradas correctamente.",
-            color=0x06B6D4,  # Cyan
-            fields=fields,
-            thumbnail_url=TEST_TUBE_ICON,
-            custom_webhook=custom_webhook,
+        return await self.enviar_embed(
+            titulo="🧪 Prueba de Notificación de Foxden",
+            descripcion="¡Excelente! Las notificaciones de tu servidor **Foxden** están listas y configuradas correctamente.",
+            color=0x06B6D4,  # Cian
+            campos=campos,
+            url_miniatura=ICONO_TUBO_ENSAYO,
+            webhook_personalizado=webhook_personalizado,
         )
+
+    # Alias en inglés para compatibilidad
+    is_configured = esta_configurado
+    send_embed = enviar_embed
+    notify_server_online = notificar_servidor_en_linea
+    notify_server_stopped = notificar_servidor_detenido
+    send_test_message = enviar_mensaje_prueba

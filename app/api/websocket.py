@@ -1,5 +1,6 @@
 """
-WebSocket handler for live Minecraft server console.
+Manejador de WebSocket para la consola en vivo del servidor de Minecraft.
+Transmite registros en tiempo real y recibe comandos desde la interfaz web.
 """
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -9,56 +10,74 @@ from app.core.process import MinecraftProcess
 router = APIRouter()
 
 
-class ConnectionManager:
+class AdministradorConexiones:
+    """Gestiona el conjunto de conexiones activas por WebSocket."""
+
     def __init__(self) -> None:
-        self.active_connections: Set[WebSocket] = set()
+        self.conexiones_activas: Set[WebSocket] = set()
 
-    async def connect(self, websocket: WebSocket) -> None:
+    async def conectar(self, websocket: WebSocket) -> None:
+        """Acepta y registra una nueva conexión WebSocket."""
         await websocket.accept()
-        self.active_connections.add(websocket)
+        self.conexiones_activas.add(websocket)
 
-    def disconnect(self, websocket: WebSocket) -> None:
-        self.active_connections.discard(websocket)
+    def desconectar(self, websocket: WebSocket) -> None:
+        """Elimina una conexión WebSocket que se ha cerrado."""
+        self.conexiones_activas.discard(websocket)
 
-    async def broadcast(self, message: str) -> None:
-        for connection in list(self.active_connections):
+    async def transmitir(self, mensaje: str) -> None:
+        """Difunde un mensaje de texto a todas las conexiones WebSocket conectadas."""
+        for conexion in list(self.conexiones_activas):
             try:
-                await connection.send_text(message)
+                await conexion.send_text(mensaje)
             except Exception:
-                self.disconnect(connection)
+                self.desconectar(conexion)
+
+    # Alias en inglés para compatibilidad
+    connect = conectar
+    disconnect = desconectar
+    broadcast = transmitir
 
 
-ws_manager = ConnectionManager()
+# Alias de clase para compatibilidad
+ConnectionManager = AdministradorConexiones
+admin_conexiones = AdministradorConexiones()
+ws_manager = admin_conexiones
 
 
-def setup_console_websocket(app_router: APIRouter, process: MinecraftProcess) -> None:
-    # Forward all process logs to active WebSocket connections
+def configurar_websocket_consola(enrutador_app: APIRouter, proceso: MinecraftProcess) -> None:
+    """Configura la ruta /ws/console y suscribe la transmisión de logs en vivo."""
     import asyncio
 
-    def on_log_line(line: str) -> None:
-        # Schedule broadcast on running event loop
+    def al_recibir_linea_log(linea: str) -> None:
+        # Enviar broadcast al bucle de eventos en ejecución
         try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(ws_manager.broadcast(line))
+            bucle = asyncio.get_running_loop()
+            bucle.create_task(admin_conexiones.transmitir(linea))
         except RuntimeError:
             pass
 
-    process.subscribe(on_log_line)
+    proceso.suscribir(al_recibir_linea_log)
 
-    @app_router.websocket("/ws/console")
-    async def console_ws(websocket: WebSocket) -> None:
-        await ws_manager.connect(websocket)
+    @enrutador_app.websocket("/ws/console")
+    async def websocket_consola(websocket: WebSocket) -> None:
+        """Endpoint de WebSocket para la consola interactiva de Minecraft."""
+        await admin_conexiones.conectar(websocket)
         try:
-            # Send initial history
-            for log_line in list(process.log_history):
-                await websocket.send_text(log_line)
+            # Enviar historial inicial de logs acumulados
+            for linea_log in list(proceso.log_history):
+                await websocket.send_text(linea_log)
 
-            # Listen for incoming commands from user terminal
+            # Escuchar comandos enviados por el usuario desde la terminal web
             while True:
-                data = await websocket.receive_text()
-                if data:
-                    await process.send_command(data)
+                datos = await websocket.receive_text()
+                if datos:
+                    await proceso.enviar_comando(datos)
         except WebSocketDisconnect:
-            ws_manager.disconnect(websocket)
+            admin_conexiones.desconectar(websocket)
         except Exception:
-            ws_manager.disconnect(websocket)
+            admin_conexiones.desconectar(websocket)
+
+
+# Alias en inglés para compatibilidad
+setup_console_websocket = configurar_websocket_consola

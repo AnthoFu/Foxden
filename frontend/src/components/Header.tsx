@@ -1,9 +1,13 @@
+/**
+ * Barra superior con métricas en tiempo real y controles de inicio/parada.
+ */
+
 import React from 'react';
 import { Play, RotateCw, Square, Cpu, HardDrive, Clock, Globe } from 'lucide-react';
 import { ServerStatus } from '../types';
-import { formatUptime } from '../utils/format';
+import { formatearTiempoActivo } from '../utils/format';
 
-interface HeaderProps {
+interface PropiedadesEncabezado {
   status: ServerStatus | null;
   loading: boolean;
   actionLoading: string | null;
@@ -12,18 +16,18 @@ interface HeaderProps {
   onRestart: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({
+export const Header: React.FC<PropiedadesEncabezado> = ({
   status,
   actionLoading,
   onStart,
   onStop,
   onRestart,
 }) => {
-  const state = status?.state || 'STOPPED';
-  const isInstalled = status?.is_installed ?? false;
+  const estadoServidor = status?.state || 'STOPPED';
+  const estaInstalado = status?.is_installed ?? false;
 
-  const getStatusBadge = () => {
-    switch (state) {
+  const obtenerInsigniaEstado = () => {
+    switch (estadoServidor) {
       case 'RUNNING':
         return {
           text: 'EN LÍNEA',
@@ -51,17 +55,17 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  const badge = getStatusBadge();
-  const tunnelRunning = status?.tunnel?.state === 'RUNNING';
-  const tunnelWaiting = status?.tunnel?.state === 'WAITING_CLAIM';
+  const insignia = obtenerInsigniaEstado();
+  const tunelEnLinea = status?.tunnel?.state === 'RUNNING';
+  const tunelEsperandoVinculacion = status?.tunnel?.state === 'WAITING_CLAIM';
 
-  const canStart = isInstalled && state === 'STOPPED' && !actionLoading;
-  const canRestart = isInstalled && state === 'RUNNING' && !actionLoading;
-  const canStop = (state === 'RUNNING' || state === 'STARTING') && !actionLoading;
+  const puedeIniciar = estaInstalado && estadoServidor === 'STOPPED' && !actionLoading;
+  const puedeReiniciar = estaInstalado && estadoServidor === 'RUNNING' && !actionLoading;
+  const puedeDetener = (estadoServidor === 'RUNNING' || estadoServidor === 'STARTING') && !actionLoading;
 
   return (
     <header className="bg-dark-800 border-b border-dark-700 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-      {/* Brand */}
+      {/* Logotipo y Título */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-fox-500/10 border border-fox-500/20 flex items-center justify-center text-2xl shadow-inner">
           🦊
@@ -77,12 +81,12 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Metrics Center */}
+      {/* Centro de Métricas */}
       <div className="flex items-center gap-3 flex-wrap">
-        {/* Status Chip */}
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold tracking-wider ${badge.bg}`}>
-          <span className={`w-2 h-2 rounded-full ${badge.dot}`} />
-          {badge.text}
+        {/* Insignia de Estado */}
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold tracking-wider ${insignia.bg}`}>
+          <span className={`w-2 h-2 rounded-full ${insignia.dot}`} />
+          {insignia.text}
         </div>
 
         {/* CPU */}
@@ -92,40 +96,40 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="font-mono font-semibold text-slate-200">{status ? `${status.cpu_percent}%` : '0%'}</span>
         </div>
 
-        {/* RAM */}
+        {/* Memoria RAM */}
         <div className="flex items-center gap-2 bg-dark-750 border border-dark-700 px-3 py-1 rounded-lg text-xs">
           <HardDrive className="w-3.5 h-3.5 text-amber-400" />
           <span className="text-slate-400 font-medium">RAM</span>
           <span className="font-mono font-semibold text-slate-200">{status ? `${status.memory_mb} MB` : '0 MB'}</span>
         </div>
 
-        {/* UPTIME */}
+        {/* Tiempo de Actividad */}
         <div className="flex items-center gap-2 bg-dark-750 border border-dark-700 px-3 py-1 rounded-lg text-xs">
           <Clock className="w-3.5 h-3.5 text-emerald-400" />
           <span className="text-slate-400 font-medium">UPTIME</span>
-          <span className="font-mono font-semibold text-slate-200">{status ? formatUptime(status.uptime_seconds) : '0s'}</span>
+          <span className="font-mono font-semibold text-slate-200">{status ? formatearTiempoActivo(status.uptime_seconds) : '0s'}</span>
         </div>
 
-        {/* TUNNEL */}
+        {/* Túnel Playit */}
         <div className="flex items-center gap-2 bg-dark-750 border border-dark-700 px-3 py-1 rounded-lg text-xs">
           <Globe className="w-3.5 h-3.5 text-purple-400" />
           <span className="text-slate-400 font-medium">TÚNEL</span>
           <span
             className={`font-semibold ${
-              tunnelRunning ? 'text-emerald-400' : tunnelWaiting ? 'text-amber-400' : 'text-slate-400'
+              tunelEnLinea ? 'text-emerald-400' : tunelEsperandoVinculacion ? 'text-amber-400' : 'text-slate-400'
             }`}
           >
-            {tunnelRunning ? 'ONLINE' : tunnelWaiting ? 'VINCULAR' : 'OFFLINE'}
+            {tunelEnLinea ? 'ONLINE' : tunelEsperandoVinculacion ? 'VINCULAR' : 'OFFLINE'}
           </span>
         </div>
       </div>
 
-      {/* Action Buttons */}
+      {/* Botones de Acción */}
       <div className="flex items-center gap-2">
         <button
           onClick={onStart}
-          disabled={!canStart}
-          title={!isInstalled ? 'Primero debes instalar una versión de Minecraft' : ''}
+          disabled={!puedeIniciar}
+          title={!estaInstalado ? 'Primero debes instalar una versión de Minecraft' : ''}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg font-semibold text-sm transition-all shadow-md bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
         >
           {actionLoading === 'start' ? (
@@ -138,7 +142,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         <button
           onClick={onRestart}
-          disabled={!canRestart}
+          disabled={!puedeReiniciar}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-sm transition-all bg-dark-700 hover:bg-dark-750 active:scale-95 text-amber-400 border border-dark-700 hover:border-amber-500/30 disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
         >
           <RotateCw className={`w-4 h-4 ${actionLoading === 'restart' ? 'animate-spin' : ''}`} />
@@ -147,7 +151,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         <button
           onClick={onStop}
-          disabled={!canStop}
+          disabled={!puedeDetener}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg font-semibold text-sm transition-all bg-rose-600/90 hover:bg-rose-500 active:scale-95 text-white disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
         >
           {actionLoading === 'stop' ? (

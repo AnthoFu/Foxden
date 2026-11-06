@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Launcher script for Minecraft Server Manager.
-Runs the FastAPI web server on http://localhost:8000 with auto-reload enabled.
-Auto-bootstraps dependencies if running on a fresh environment.
+Script de lanzamiento del Gestor de Servidor Minecraft Foxden.
+Ejecuta el servidor web FastAPI en http://localhost:8000 con recarga automática.
+Instala dependencias automáticamente en entornos nuevos.
 """
 
 import argparse
@@ -12,15 +12,15 @@ import sys
 import time
 from pathlib import Path
 
-# Self-bootstrap dependencies in fresh environments (like GitHub Codespaces)
+# Auto-instalación de dependencias en entornos nuevos (ej. GitHub Codespaces)
 try:
     import fastapi
     import uvicorn
 except ImportError:
     print("📦 Dependencias faltantes detectadas. Instalando requirements.txt automáticamente...")
-    req_file = Path(__file__).resolve().parent / "requirements.txt"
-    if req_file.exists():
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", str(req_file)])
+    archivo_req = Path(__file__).resolve().parent / "requirements.txt"
+    if archivo_req.exists():
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", str(archivo_req)])
         import fastapi
         import uvicorn
     else:
@@ -28,53 +28,69 @@ except ImportError:
         sys.exit(1)
 
 
-def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
+def puerto_en_uso(puerto: int, host: str = "127.0.0.1") -> bool:
+    """Comprueba si un puerto TCP específico está siendo utilizado."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(0.5)
-        return s.connect_ex((host, port)) == 0
+        return s.connect_ex((host, puerto)) == 0
 
 
-def free_port(port: int) -> bool:
+# Alias para compatibilidad
+is_port_in_use = puerto_en_uso
+
+
+def liberar_puerto(puerto: int) -> bool:
+    """Intenta forzar la liberación del puerto cerrando el proceso colgado con fuser."""
     import shutil
     if shutil.which("fuser"):
-        res = subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True)
+        res = subprocess.run(["fuser", "-k", f"{puerto}/tcp"], capture_output=True)
         return res.returncode == 0
     return False
 
 
-def ensure_frontend():
-    base_dir = Path(__file__).resolve().parent
-    frontend_dir = base_dir / "frontend"
-    frontend_dist = frontend_dir / "dist"
+# Alias para compatibilidad
+free_port = liberar_puerto
 
-    if frontend_dir.exists() and not (frontend_dist / "index.html").exists():
+
+def asegurar_frontend():
+    """Compila el frontend React si existe la carpeta de fuentes pero falta la carpeta dist."""
+    dir_base = Path(__file__).resolve().parent
+    dir_frontend = dir_base / "frontend"
+    dist_frontend = dir_frontend / "dist"
+
+    if dir_frontend.exists() and not (dist_frontend / "index.html").exists():
         import shutil
         npm_bin = shutil.which("npm")
         if npm_bin:
             print("📦 Compilando frontend React moderno por primera vez...")
             try:
-                subprocess.check_call([npm_bin, "install"], cwd=str(frontend_dir))
-                subprocess.check_call([npm_bin, "run", "build"], cwd=str(frontend_dir))
+                subprocess.check_call([npm_bin, "install"], cwd=str(dir_frontend))
+                subprocess.check_call([npm_bin, "run", "build"], cwd=str(dir_frontend))
                 print("✨ Frontend compilado con éxito.")
             except Exception as e:
                 print(f"⚠️ Aviso: No se pudo compilar el frontend ({e}).")
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Foxden - Autonomous Minecraft Server Manager")
-    parser.add_argument("--host", default="0.0.0.0", help="Host IP to bind (default: 0.0.0.0)")
-    parser.add_argument("--port", type=int, default=8000, help="Port to listen on (default: 8000)")
-    parser.add_argument("--no-reload", dest="reload", action="store_false", default=True, help="Disable auto-reload")
-    parser.add_argument("--kill", "--force", dest="kill", action="store_true", help="Force kill any stale process using the port")
-    args = parser.parse_args()
+# Alias para compatibilidad
+ensure_frontend = asegurar_frontend
 
-    ensure_frontend()
 
-    bind_host = "127.0.0.1" if args.host == "0.0.0.0" else args.host
-    if is_port_in_use(args.port, bind_host):
+def principal():
+    """Punto de entrada de línea de comandos para Foxden."""
+    analizador = argparse.ArgumentParser(description="Foxden - Gestor Autónomo de Servidor Minecraft")
+    analizador.add_argument("--host", default="0.0.0.0", help="Dirección IP de escucha (predeterminado: 0.0.0.0)")
+    analizador.add_argument("--port", type=int, default=8000, help="Puerto de escucha (predeterminado: 8000)")
+    analizador.add_argument("--no-reload", dest="reload", action="store_false", default=True, help="Desactivar recarga automática")
+    analizador.add_argument("--kill", "--force", dest="kill", action="store_true", help="Forzar la liberación del puerto si está ocupado")
+    args = analizador.parse_args()
+
+    asegurar_frontend()
+
+    host_vinculacion = "127.0.0.1" if args.host == "0.0.0.0" else args.host
+    if puerto_en_uso(args.port, host_vinculacion):
         if args.kill:
             print(f"🔄 Liberando puerto {args.port}...")
-            free_port(args.port)
+            liberar_puerto(args.port)
             time.sleep(0.5)
         else:
             print(f"\n⚠️ El puerto {args.port} ya está en uso por otro proceso (probablemente una instancia anterior).")
@@ -92,5 +108,9 @@ def main():
     uvicorn.run("app.main:app", host=args.host, port=args.port, reload=args.reload)
 
 
+# Alias para compatibilidad
+main = principal
+
+
 if __name__ == "__main__":
-    main()
+    principal()

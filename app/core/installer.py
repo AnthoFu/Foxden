@@ -1,7 +1,7 @@
 """
-Server installer and JAR downloader.
-Fetches official builds from Mojang (Vanilla), Fabric (Mods),
-Minecraft Forge, and NeoForge.
+Instalador de servidores y descargador de archivos JAR.
+Descarga compilaciones oficiales desde Mojang (Vanilla), Fabric (Mods),
+Minecraft Forge y NeoForge.
 """
 
 import asyncio
@@ -17,13 +17,24 @@ from app.core.jdk import JdkManager
 
 
 class ServerInstaller:
-    MOJANG_MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
-    FABRIC_META_URL = "https://meta.fabricmc.net/v2/versions"
-    FORGE_PROMOS_URL = "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json"
-    FORGE_MAVEN_BASE = "https://maven.minecraftforge.net/net/minecraftforge/forge"
-    NEOFORGE_MAVEN_META = "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml"
-    NEOFORGE_MAVEN_BASE = "https://maven.neoforged.net/releases/net/neoforged/neoforge"
-    NEOFORGE_LEGACY_1201_BASE = "https://maven.neoforged.net/releases/net/neoforged/forge"
+    """Instalador automatizado de servidores de Minecraft y cargadores de mods."""
+
+    URL_MANIFIESTO_MOJANG = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
+    URL_META_FABRIC = "https://meta.fabricmc.net/v2/versions"
+    URL_PROMOS_FORGE = "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json"
+    URL_MAVEN_FORGE = "https://maven.minecraftforge.net/net/minecraftforge/forge"
+    URL_MAVEN_META_NEOFORGE = "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml"
+    URL_MAVEN_NEOFORGE = "https://maven.neoforged.net/releases/net/neoforged/neoforge"
+    URL_NEOFORGE_LEGADO_1201 = "https://maven.neoforged.net/releases/net/neoforged/forge"
+
+    # Alias para compatibilidad
+    MOJANG_MANIFEST_URL = URL_MANIFIESTO_MOJANG
+    FABRIC_META_URL = URL_META_FABRIC
+    FORGE_PROMOS_URL = URL_PROMOS_FORGE
+    FORGE_MAVEN_BASE = URL_MAVEN_FORGE
+    NEOFORGE_MAVEN_META = URL_MAVEN_META_NEOFORGE
+    NEOFORGE_MAVEN_BASE = URL_MAVEN_NEOFORGE
+    NEOFORGE_LEGACY_1201_BASE = URL_NEOFORGE_LEGADO_1201
 
     def __init__(self, server_dir: Path, jdk_manager: Optional[JdkManager] = None) -> None:
         self.server_dir = Path(server_dir).resolve()
@@ -32,69 +43,67 @@ class ServerInstaller:
         self._forge_promos_cache: Optional[dict] = None
         self._neoforge_manifest_cache: Optional[Dict[str, str]] = None
 
-    async def get_mojang_manifest(self) -> dict:
+    async def obtener_manifiesto_mojang(self) -> dict:
+        """Obtiene el manifiesto oficial de versiones publicado por Mojang."""
         if self._mojang_manifest_cache is None:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                res = await client.get(self.MOJANG_MANIFEST_URL)
+            async with httpx.AsyncClient(timeout=10.0) as cliente:
+                res = await cliente.get(self.URL_MANIFIESTO_MOJANG)
                 res.raise_for_status()
                 self._mojang_manifest_cache = res.json()
         return self._mojang_manifest_cache
 
-    async def get_forge_promos(self) -> dict:
+    async def obtener_promociones_forge(self) -> dict:
+        """Obtiene las promociones y versiones recomendadas de Minecraft Forge."""
         if self._forge_promos_cache is None:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                res = await client.get(self.FORGE_PROMOS_URL)
+            async with httpx.AsyncClient(timeout=10.0) as cliente:
+                res = await cliente.get(self.URL_PROMOS_FORGE)
                 res.raise_for_status()
                 self._forge_promos_cache = res.json()
         return self._forge_promos_cache
 
-    async def get_neoforge_manifest(self) -> Dict[str, str]:
-        """
-        Fetches and caches NeoForge maven metadata, mapping Minecraft versions to latest stable NeoForge builds.
-        Maps Minecraft versions (e.g. 1.21.4, 1.21.1, 1.20.4, 1.20.1) to NeoForge release versions.
-        """
+    async def obtener_manifiesto_neoforge(self) -> Dict[str, str]:
+        """Obtiene y mapea las versiones estables de NeoForge para cada versión de Minecraft."""
         if self._neoforge_manifest_cache is not None:
             return self._neoforge_manifest_cache
 
-        mapping: Dict[str, str] = {}
-        # 1.20.1 is hosted under legacy net.neoforged:forge
-        mapping["1.20.1"] = "1.20.1-47.1.106"
+        mapeo: Dict[str, str] = {}
+        # 1.20.1 se aloja bajo net.neoforged:forge
+        mapeo["1.20.1"] = "1.20.1-47.1.106"
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                res = await client.get(self.NEOFORGE_MAVEN_META)
+            async with httpx.AsyncClient(timeout=10.0) as cliente:
+                res = await cliente.get(self.URL_MAVEN_META_NEOFORGE)
                 if res.status_code == 200:
-                    root = ET.fromstring(res.text)
-                    raw_versions = [v.text for v in root.findall(".//version") if v.text]
-                    for v in raw_versions:
+                    raiz = ET.fromstring(res.text)
+                    versiones_crudas = [v.text for v in raiz.findall(".//version") if v.text]
+                    for v in versiones_crudas:
                         m = re.match(r"^(\d+)\.(\d+)(?:\.(\d+))?(?:\.(\d+))?(-.*)?$", v)
                         if not m:
                             continue
-                        major = int(m.group(1))
-                        minor = int(m.group(2))
-                        tag = (m.group(5) or "").lower()
+                        mayor = int(m.group(1))
+                        menor = int(m.group(2))
+                        etiqueta = (m.group(5) or "").lower()
 
-                        # Exclude alpha, snapshot, pre-releases to guarantee stability
-                        if "alpha" in tag or "snapshot" in tag or "pre" in tag:
+                        if "alpha" in etiqueta or "snapshot" in etiqueta or "pre" in etiqueta:
                             continue
 
-                        if major in (20, 21):
-                            mc_ver = f"1.{major}.{minor}" if minor > 0 else f"1.{major}"
-                        elif major >= 26:
-                            mc_ver = f"{major}.{minor}"
+                        if mayor in (20, 21):
+                            mc_ver = f"1.{mayor}.{menor}" if menor > 0 else f"1.{mayor}"
+                        elif mayor >= 26:
+                            mc_ver = f"{mayor}.{menor}"
                         else:
                             continue
 
-                        current = mapping.get(mc_ver)
-                        if not current or ("beta" in current and "beta" not in tag) or ("beta" not in tag):
-                            mapping[mc_ver] = v
+                        actual = mapeo.get(mc_ver)
+                        if not actual or ("beta" in actual and "beta" not in etiqueta) or ("beta" not in etiqueta):
+                            mapeo[mc_ver] = v
 
         except Exception:
             pass
 
-        # Fallback catalog if Maven metadata is temporarily unreachable
-        if not mapping or len(mapping) <= 1:
-            mapping.update({
+        # Catálogo de respaldo si Maven no responde
+        if not mapeo or len(mapeo) <= 1:
+            mapeo.update({
                 "26.3": "26.3.0.101",
                 "26.2": "26.2.0.93",
                 "26.1": "26.1.2.126",
@@ -108,211 +117,197 @@ class ServerInstaller:
                 "1.20.1": "1.20.1-47.1.106",
             })
 
-        self._neoforge_manifest_cache = mapping
+        self._neoforge_manifest_cache = mapeo
         return self._neoforge_manifest_cache
 
-    async def get_versions(self, server_type: str = "vanilla", include_snapshots: bool = False) -> List[str]:
-        """Fetch available versions according to server type (vanilla, fabric, forge, neoforge)."""
-        server_type = server_type.lower()
+    async def obtener_versiones(self, tipo_servidor: str = "vanilla", incluir_snapshots: bool = False) -> List[str]:
+        """Obtiene las versiones disponibles según el tipo de servidor (vanilla, fabric, forge, neoforge)."""
+        tipo_servidor = tipo_servidor.lower()
         try:
-            if server_type == "vanilla":
-                manifest = await self.get_mojang_manifest()
-                versions = [
+            if tipo_servidor == "vanilla":
+                manifiesto = await self.obtener_manifiesto_mojang()
+                versiones = [
                     v["id"]
-                    for v in manifest.get("versions", [])
-                    if v.get("type") == "release" or (include_snapshots and v.get("type") == "snapshot")
+                    for v in manifiesto.get("versions", [])
+                    if v.get("type") == "release" or (incluir_snapshots and v.get("type") == "snapshot")
                 ]
-                return versions
+                return versiones
 
-            elif server_type == "neoforge":
-                mapping = await self.get_neoforge_manifest()
+            elif tipo_servidor == "neoforge":
+                mapeo = await self.obtener_manifiesto_neoforge()
 
-                def sort_mc_key(v: str):
-                    parts = []
+                def clave_orden(v: str):
+                    partes = []
                     for p in v.split("."):
                         try:
-                            parts.append(int(p))
+                            partes.append(int(p))
                         except ValueError:
-                            parts.append(0)
-                    return parts
+                            partes.append(0)
+                    return partes
 
-                return sorted(mapping.keys(), key=sort_mc_key, reverse=True)
+                return sorted(mapeo.keys(), key=clave_orden, reverse=True)
 
-            elif server_type == "fabric":
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    res = await client.get(f"{self.FABRIC_META_URL}/game")
+            elif tipo_servidor == "fabric":
+                async with httpx.AsyncClient(timeout=10.0) as cliente:
+                    res = await cliente.get(f"{self.URL_META_FABRIC}/game")
                     if res.status_code == 200:
-                        versions = [v["version"] for v in res.json() if v.get("stable")]
-                        return versions
+                        versiones = [v["version"] for v in res.json() if v.get("stable")]
+                        return versiones
 
-            elif server_type == "forge":
-                data = await self.get_forge_promos()
-                promos = data.get("promos", {})
-                raw_versions = set()
+            elif tipo_servidor == "forge":
+                datos = await self.obtener_promociones_forge()
+                promos = datos.get("promos", {})
+                versiones_crudas = set()
                 for k in promos.keys():
-                    raw_versions.add(k.replace("-latest", "").replace("-recommended", ""))
+                    versiones_crudas.add(k.replace("-latest", "").replace("-recommended", ""))
 
-                def sort_key(v: str):
-                    parts = []
+                def clave_orden_forge(v: str):
+                    partes = []
                     for p in v.split("."):
                         try:
-                            parts.append(int(p))
+                            partes.append(int(p))
                         except ValueError:
-                            parts.append(0)
-                    return parts
+                            partes.append(0)
+                    return partes
 
-                return sorted(raw_versions, key=sort_key, reverse=True)
+                return sorted(versiones_crudas, key=clave_orden_forge, reverse=True)
 
         except Exception:
             pass
 
         return ["26.3", "26.2", "26.1", "1.21.4", "1.21.3", "1.21.1", "1.20.4", "1.20.1", "1.19.4", "1.18.2", "1.16.5", "1.12.2"]
 
-    async def download_server(self, server_type: str, version: str) -> Path:
-        """Download server executable directly from the authoritative provider."""
+    async def descargar_servidor(self, tipo_servidor: str, version: str) -> Path:
+        """Descarga e instala el ejecutable oficial del servidor de Minecraft seleccionado."""
         self.server_dir.mkdir(parents=True, exist_ok=True)
-        server_type = server_type.lower()
-        target_path = self.server_dir / "server.jar"
+        tipo_servidor = tipo_servidor.lower()
+        ruta_destino = self.server_dir / "server.jar"
 
-        async with httpx.AsyncClient(timeout=90.0, follow_redirects=True) as client:
-            if server_type == "vanilla":
-                manifest = await self.get_mojang_manifest()
-                target_ver = next((v for v in manifest.get("versions", []) if v["id"] == version), None)
-                if not target_ver:
-                    raise RuntimeError(f"Version {version} not found in Mojang manifest.")
+        async with httpx.AsyncClient(timeout=90.0, follow_redirects=True) as cliente:
+            if tipo_servidor == "vanilla":
+                manifiesto = await self.obtener_manifiesto_mojang()
+                ver_objetivo = next((v for v in manifiesto.get("versions", []) if v["id"] == version), None)
+                if not ver_objetivo:
+                    raise RuntimeError(f"Versión {version} no encontrada en el manifiesto de Mojang.")
 
-                ver_meta_res = await client.get(target_ver["url"])
-                ver_meta_res.raise_for_status()
-                ver_meta = ver_meta_res.json()
-                server_download = ver_meta.get("downloads", {}).get("server")
-                if not server_download or "url" not in server_download:
-                    raise RuntimeError(f"No server jar available for vanilla version {version}")
+                res_meta = await cliente.get(ver_objetivo["url"])
+                res_meta.raise_for_status()
+                meta = res_meta.json()
+                descarga_servidor = meta.get("downloads", {}).get("server")
+                if not descarga_servidor or "url" not in descarga_servidor:
+                    raise RuntimeError(f"No hay jar de servidor disponible para vanilla {version}")
 
-                async with client.stream("GET", server_download["url"]) as response:
-                    response.raise_for_status()
-                    with open(target_path, "wb") as f:
-                        async for chunk in response.aiter_bytes(chunk_size=65536):
-                            f.write(chunk)
-                return target_path
+                async with cliente.stream("GET", descarga_servidor["url"]) as respuesta:
+                    respuesta.raise_for_status()
+                    with open(ruta_destino, "wb") as f:
+                        async for bloque in respuesta.aiter_bytes(chunk_size=65536):
+                            f.write(bloque)
+                return ruta_destino
 
-            elif server_type == "fabric":
-                loader_res = await client.get(f"{self.FABRIC_META_URL}/loader")
-                loader_res.raise_for_status()
-                loader_version = loader_res.json()[0]["version"]
+            elif tipo_servidor == "fabric":
+                res_loader = await cliente.get(f"{self.URL_META_FABRIC}/loader")
+                res_loader.raise_for_status()
+                version_loader = res_loader.json()[0]["version"]
 
-                installer_res = await client.get(f"{self.FABRIC_META_URL}/installer")
-                installer_res.raise_for_status()
-                installer_version = installer_res.json()[0]["version"]
+                res_instalador = await cliente.get(f"{self.URL_META_FABRIC}/installer")
+                res_instalador.raise_for_status()
+                version_instalador = res_instalador.json()[0]["version"]
 
-                download_url = f"{self.FABRIC_META_URL}/loader/{version}/{loader_version}/{installer_version}/server/jar"
-                async with client.stream("GET", download_url) as response:
-                    response.raise_for_status()
-                    with open(target_path, "wb") as f:
-                        async for chunk in response.aiter_bytes(chunk_size=65536):
-                            f.write(chunk)
-                return target_path
+                url_descarga = f"{self.URL_META_FABRIC}/loader/{version}/{version_loader}/{version_instalador}/server/jar"
+                async with cliente.stream("GET", url_descarga) as respuesta:
+                    respuesta.raise_for_status()
+                    with open(ruta_destino, "wb") as f:
+                        async for bloque in respuesta.aiter_bytes(chunk_size=65536):
+                            f.write(bloque)
+                return ruta_destino
 
-            elif server_type == "forge":
-                data = await self.get_forge_promos()
-                promos = data.get("promos", {})
-                forge_ver = promos.get(f"{version}-recommended") or promos.get(f"{version}-latest")
-                if not forge_ver:
-                    raise RuntimeError(f"No Forge build found for Minecraft {version}")
+            elif tipo_servidor == "forge":
+                datos = await self.obtener_promociones_forge()
+                promos = datos.get("promos", {})
+                ver_forge = promos.get(f"{version}-recommended") or promos.get(f"{version}-latest")
+                if not ver_forge:
+                    raise RuntimeError(f"No se encontró compilación de Forge para Minecraft {version}")
 
-                installer_filename = f"forge-{version}-{forge_ver}-installer.jar"
-                installer_url = f"{self.FORGE_MAVEN_BASE}/{version}-{forge_ver}/{installer_filename}"
-                installer_path = self.server_dir / "forge-installer.jar"
+                nombre_archivo = f"forge-{version}-{ver_forge}-installer.jar"
+                url_instalador = f"{self.URL_MAVEN_FORGE}/{version}-{ver_forge}/{nombre_archivo}"
+                ruta_instalador = self.server_dir / "forge-installer.jar"
 
-                # Download installer
-                async with client.stream("GET", installer_url) as response:
-                    response.raise_for_status()
-                    with open(installer_path, "wb") as f:
-                        async for chunk in response.aiter_bytes(chunk_size=65536):
-                            f.write(chunk)
+                async with cliente.stream("GET", url_instalador) as respuesta:
+                    respuesta.raise_for_status()
+                    with open(ruta_instalador, "wb") as f:
+                        async for bloque in respuesta.aiter_bytes(chunk_size=65536):
+                            f.write(bloque)
 
-                # Select best JDK for installer execution
-                jdk_info = self.jdk_manager.get_best_jdk_for_version(version)
-                java_bin = jdk_info.get("path", "java")
-                env = self.jdk_manager.build_env_for_jdk(jdk_info)
+                info_jdk = self.jdk_manager.obtener_mejor_jdk_para_version(version)
+                bin_java = info_jdk.get("path", "java")
+                entorno = self.jdk_manager.construir_entorno_para_jdk(info_jdk)
 
-                # Execute installer: java -jar forge-installer.jar --installServer
-                installer_proc = await asyncio.create_subprocess_exec(
-                    java_bin,
+                proceso_instalador = await asyncio.create_subprocess_exec(
+                    bin_java,
                     "-jar",
                     "forge-installer.jar",
                     "--installServer",
                     cwd=str(self.server_dir),
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    env=env,
+                    env=entorno,
                 )
-                stdout, stderr = await installer_proc.communicate()
+                await proceso_instalador.communicate()
 
-                # Clean up installer jar
-                if installer_path.exists():
-                    installer_path.unlink()
+                if ruta_instalador.exists():
+                    ruta_instalador.unlink()
 
-                # Check output target
                 run_sh = self.server_dir / "run.sh"
                 if run_sh.exists():
                     os.chmod(str(run_sh), 0o755)
                     return run_sh
 
-                # Look for forge-*.jar if run.sh was not generated (older Forge)
                 for jar in self.server_dir.glob("forge-*.jar"):
                     if not jar.name.endswith("installer.jar"):
                         return jar
 
-                return target_path
+                return ruta_destino
 
-            elif server_type == "neoforge":
-                mapping = await self.get_neoforge_manifest()
-                build_ver = mapping.get(version) or version
+            elif tipo_servidor == "neoforge":
+                mapeo = await self.obtener_manifiesto_neoforge()
+                ver_compilacion = mapeo.get(version) or version
+                ruta_instalador = self.server_dir / "neoforge-installer.jar"
 
-                installer_path = self.server_dir / "neoforge-installer.jar"
-
-                # If 1.20.1 legacy, it is under net.neoforged:forge
-                if version == "1.20.1" or "1.20.1" in build_ver:
-                    installer_url = f"{self.NEOFORGE_LEGACY_1201_BASE}/{build_ver}/forge-{build_ver}-installer.jar"
+                if version == "1.20.1" or "1.20.1" in ver_compilacion:
+                    url_instalador = f"{self.URL_NEOFORGE_LEGADO_1201}/{ver_compilacion}/forge-{ver_compilacion}-installer.jar"
                 else:
-                    installer_url = f"{self.NEOFORGE_MAVEN_BASE}/{build_ver}/neoforge-{build_ver}-installer.jar"
+                    url_instalador = f"{self.URL_MAVEN_NEOFORGE}/{ver_compilacion}/neoforge-{ver_compilacion}-installer.jar"
 
-                # Download installer
-                async with client.stream("GET", installer_url) as response:
-                    response.raise_for_status()
-                    with open(installer_path, "wb") as f:
-                        async for chunk in response.aiter_bytes(chunk_size=65536):
-                            f.write(chunk)
+                async with cliente.stream("GET", url_instalador) as respuesta:
+                    respuesta.raise_for_status()
+                    with open(ruta_instalador, "wb") as f:
+                        async for bloque in respuesta.aiter_bytes(chunk_size=65536):
+                            f.write(bloque)
 
-                # Select best JDK for installer execution
-                jdk_info = self.jdk_manager.get_best_jdk_for_version(version)
-                java_bin = jdk_info.get("path", "java")
-                env = self.jdk_manager.build_env_for_jdk(jdk_info)
+                info_jdk = self.jdk_manager.obtener_mejor_jdk_para_version(version)
+                bin_java = info_jdk.get("path", "java")
+                entorno = self.jdk_manager.construir_entorno_para_jdk(info_jdk)
 
-                # Execute installer: java -jar neoforge-installer.jar --installServer
-                installer_proc = await asyncio.create_subprocess_exec(
-                    java_bin,
+                proceso_instalador = await asyncio.create_subprocess_exec(
+                    bin_java,
                     "-jar",
                     "neoforge-installer.jar",
                     "--installServer",
                     cwd=str(self.server_dir),
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    env=env,
+                    env=entorno,
                 )
-                stdout, stderr = await installer_proc.communicate()
+                await proceso_instalador.communicate()
 
-                # Clean up installer jar
-                if installer_path.exists():
-                    installer_path.unlink()
+                if ruta_instalador.exists():
+                    ruta_instalador.unlink()
 
-                # Check output target
                 run_sh = self.server_dir / "run.sh"
                 if run_sh.exists():
                     os.chmod(str(run_sh), 0o755)
                     return run_sh
 
-                # Fallback search for any generated jar
                 for jar in self.server_dir.glob("neoforge-*.jar"):
                     if not jar.name.endswith("installer.jar"):
                         return jar
@@ -321,13 +316,13 @@ class ServerInstaller:
                     if not jar.name.endswith("installer.jar"):
                         return jar
 
-                return target_path
+                return ruta_destino
 
             else:
-                raise ValueError(f"Unsupported server type: {server_type}")
+                raise ValueError(f"Tipo de servidor no soportado: {tipo_servidor}")
 
-    def is_server_installed(self) -> bool:
-        """Checks if a valid server executable has been installed."""
+    def esta_servidor_instalado(self) -> bool:
+        """Comprueba si existe un ejecutable o archivo JAR de servidor instalado en el directorio."""
         if not self.server_dir.exists():
             return False
         if (self.server_dir / "run.sh").exists():
@@ -337,13 +332,22 @@ class ServerInstaller:
                 return True
         return False
 
-    def list_installed_jars(self) -> List[str]:
-        """List JAR or executable runner files in server directory."""
+    def listar_jars_instalados(self) -> List[str]:
+        """Lista los archivos JAR o scripts de ejecución presentes en el directorio del servidor."""
         if not self.server_dir.exists():
             return []
-        files = []
+        archivos = []
         for p in self.server_dir.glob("*.jar"):
-            files.append(p.name)
+            archivos.append(p.name)
         for p in self.server_dir.glob("run.sh"):
-            files.append(p.name)
-        return sorted(files)
+            archivos.append(p.name)
+        return sorted(archivos)
+
+    # Alias en inglés para compatibilidad
+    get_mojang_manifest = obtener_manifiesto_mojang
+    get_forge_promos = obtener_promociones_forge
+    get_neoforge_manifest = obtener_manifiesto_neoforge
+    get_versions = obtener_versiones
+    download_server = descargar_servidor
+    is_server_installed = esta_servidor_instalado
+    list_installed_jars = listar_jars_instalados

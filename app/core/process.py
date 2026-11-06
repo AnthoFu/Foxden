@@ -1,6 +1,7 @@
 """
-Process management module for Minecraft server.
-Handles execution, stdin command routing, async log streaming, and resource monitoring.
+Módulo de gestión del proceso del servidor de Minecraft.
+Maneja la ejecución asíncrona, enrutamiento de comandos vía stdin,
+transmisión de logs en vivo y monitoreo de recursos del sistema (CPU y RAM).
 """
 
 import asyncio
@@ -15,6 +16,7 @@ import psutil
 
 
 class ProcessState(str, Enum):
+    """Estados del ciclo de vida del proceso de Minecraft."""
     STOPPED = "STOPPED"
     STARTING = "STARTING"
     RUNNING = "RUNNING"
@@ -22,6 +24,8 @@ class ProcessState(str, Enum):
 
 
 class MinecraftProcess:
+    """Controlador y supervisor del proceso del servidor de Minecraft."""
+
     def __init__(
         self,
         server_dir: Path,
@@ -39,21 +43,25 @@ class MinecraftProcess:
         self.on_server_ready: Optional[Callable[[], Any]] = None
         self.on_server_stopped: Optional[Callable[[float, int], Any]] = None
 
-    def subscribe(self, callback: Callable[[str], None]) -> None:
+    def suscribir(self, callback: Callable[[str], None]) -> None:
+        """Registra un observador para recibir cada nueva línea de log."""
         self._subscribers.add(callback)
 
-    def unsubscribe(self, callback: Callable[[str], None]) -> None:
+    def desuscribir(self, callback: Callable[[str], None]) -> None:
+        """Elimina un observador registrado."""
         self._subscribers.discard(callback)
 
-    def _broadcast_log(self, line: str) -> None:
-        self.log_history.append(line)
+    def _transmitir_registro(self, linea: str) -> None:
+        """Agrega la línea al historial en memoria y la transmite a los suscriptores."""
+        self.log_history.append(linea)
         for cb in list(self._subscribers):
             try:
-                cb(line)
+                cb(linea)
             except Exception:
                 pass
 
-    async def start(self, env: Optional[Dict[str, str]] = None) -> bool:
+    async def iniciar(self, env: Optional[Dict[str, str]] = None) -> bool:
+        """Inicia el proceso hijo de Minecraft de forma asíncrona."""
         if self.state != ProcessState.STOPPED:
             return False
 
@@ -62,8 +70,8 @@ class MinecraftProcess:
 
         self.state = ProcessState.STARTING
         self.start_time = time.time()
-        self._broadcast_log(f"[FOXDEN] Iniciando servidor en {self.server_dir}...")
-        self._broadcast_log(f"[FOXDEN] Comando ejecutado: {' '.join(self.launch_command)}")
+        self._transmitir_registro(f"[FOXDEN] Iniciando servidor en {self.server_dir}...")
+        self._transmitir_registro(f"[FOXDEN] Comando ejecutado: {' '.join(self.launch_command)}")
 
         try:
             self.process = await asyncio.create_subprocess_exec(
@@ -76,13 +84,14 @@ class MinecraftProcess:
             )
         except Exception as e:
             self.state = ProcessState.STOPPED
-            self._broadcast_log(f"[FOXDEN] Error al iniciar el proceso del servidor: {e}")
+            self._transmitir_registro(f"[FOXDEN] Error al iniciar el proceso del servidor: {e}")
             return False
 
-        self._reader_task = asyncio.create_task(self._read_output())
+        self._reader_task = asyncio.create_task(self._leer_salida())
         return True
 
-    async def _read_output(self) -> None:
+    async def _leer_salida(self) -> None:
+        """Lee continuamente la salida estándar y de error del proceso de Minecraft."""
         if not self.process or not self.process.stdout:
             return
 
@@ -91,65 +100,67 @@ class MinecraftProcess:
             if not line_bytes:
                 break
 
-            line = line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
-            self._broadcast_log(line)
+            linea = line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
+            self._transmitir_registro(linea)
 
-            # Detect server ready signal
+            # Detectar señal de servidor listo
             if self.state == ProcessState.STARTING:
-                if 'Done (' in line and ')! For help, type "help"' in line or "Timings Reset" in line:
+                if 'Done (' in linea and ')! For help, type "help"' in linea or "Timings Reset" in linea:
                     self.state = ProcessState.RUNNING
-                    self._broadcast_log("[FOXDEN] ¡El servidor está EN LÍNEA y listo para recibir jugadores!")
+                    self._transmitir_registro("[FOXDEN] ¡El servidor está EN LÍNEA y listo para recibir jugadores!")
                     if self.on_server_ready:
                         try:
                             res = self.on_server_ready()
                             if asyncio.iscoroutine(res):
                                 asyncio.create_task(res)
                         except Exception as cb_err:
-                            self._broadcast_log(f"[FOXDEN] Error en callback de servidor listo: {cb_err}")
+                            self._transmitir_registro(f"[FOXDEN] Error en callback de servidor listo: {cb_err}")
 
-        return_code = await self.process.wait()
-        uptime_seconds = time.time() - self.start_time if self.start_time else 0.0
+        codigo_retorno = await self.process.wait()
+        tiempo_activo = time.time() - self.start_time if self.start_time else 0.0
         self.state = ProcessState.STOPPED
         self.process = None
-        self._broadcast_log(f"[FOXDEN] El proceso del servidor finalizó con código {return_code}.")
+        self._transmitir_registro(f"[FOXDEN] El proceso del servidor finalizó con código {codigo_retorno}.")
         if self.on_server_stopped:
             try:
-                res = self.on_server_stopped(uptime_seconds, return_code)
+                res = self.on_server_stopped(tiempo_activo, codigo_retorno)
                 if asyncio.iscoroutine(res):
                     asyncio.create_task(res)
             except Exception as cb_err:
-                self._broadcast_log(f"[FOXDEN] Error en callback de servidor detenido: {cb_err}")
+                self._transmitir_registro(f"[FOXDEN] Error en callback de servidor detenido: {cb_err}")
 
-    async def send_command(self, command: str) -> bool:
+    async def enviar_comando(self, comando: str) -> bool:
+        """Escribe un comando en la consola estándar (stdin) del servidor de Minecraft."""
         if not self.process or self.process.returncode is not None or not self.process.stdin:
             return False
 
-        clean_cmd = command.strip()
-        if not clean_cmd:
+        comando_limpio = comando.strip()
+        if not comando_limpio:
             return False
 
         try:
-            self.process.stdin.write(f"{clean_cmd}\n".encode("utf-8"))
+            self.process.stdin.write(f"{comando_limpio}\n".encode("utf-8"))
             await self.process.stdin.drain()
-            self._broadcast_log(f"> {clean_cmd}")
+            self._transmitir_registro(f"> {comando_limpio}")
             return True
         except Exception as e:
-            self._broadcast_log(f"[FOXDEN] Error al enviar comando: {e}")
+            self._transmitir_registro(f"[FOXDEN] Error al enviar comando: {e}")
             return False
 
-    async def stop(self, timeout: float = 25.0) -> bool:
+    async def detener(self, timeout: float = 25.0) -> bool:
+        """Detiene el servidor enviando el comando seguro 'stop' y esperando su cierre."""
         if self.state in (ProcessState.STOPPED, ProcessState.STOPPING) or not self.process:
             return False
 
         self.state = ProcessState.STOPPING
-        self._broadcast_log("[FOXDEN] Deteniendo el servidor de forma segura (enviando 'stop')...")
-        await self.send_command("stop")
+        self._transmitir_registro("[FOXDEN] Deteniendo el servidor de forma segura (enviando 'stop')...")
+        await self.enviar_comando("stop")
 
-        # Wait for graceful shutdown
-        start_wait = time.time()
+        # Esperar apagado limpio
+        inicio_espera = time.time()
         while self.process and self.process.returncode is None:
-            if time.time() - start_wait > timeout:
-                self._broadcast_log("[FOXDEN] Tiempo de espera agotado para el cierre seguro. Forzando detención del proceso...")
+            if time.time() - inicio_espera > timeout:
+                self._transmitir_registro("[FOXDEN] Tiempo de espera agotado para el cierre seguro. Forzando detención del proceso...")
                 try:
                     self.process.terminate()
                 except ProcessLookupError:
@@ -160,42 +171,54 @@ class MinecraftProcess:
         self.state = ProcessState.STOPPED
         return True
 
-    async def restart(self) -> bool:
+    async def reiniciar(self) -> bool:
+        """Detiene y vuelve a iniciar el servidor de Minecraft."""
         if self.state != ProcessState.STOPPED:
-            await self.stop()
-            # wait until fully stopped
+            await self.detener()
             while self.state != ProcessState.STOPPED:
                 await asyncio.sleep(0.5)
-        return await self.start()
+        return await self.iniciar()
 
-    def get_metrics(self) -> dict:
-        uptime = 0.0
+    def obtener_metricas(self) -> dict:
+        """Calcula el consumo actual de CPU, memoria RAM y tiempo en línea."""
+        tiempo_activo = 0.0
         if self.start_time and self.state in (ProcessState.STARTING, ProcessState.RUNNING):
-            uptime = round(time.time() - self.start_time, 1)
+            tiempo_activo = round(time.time() - self.start_time, 1)
 
-        cpu_percent = 0.0
-        memory_mb = 0.0
-        memory_percent = 0.0
+        porcentaje_cpu = 0.0
+        memoria_mb = 0.0
+        porcentaje_memoria = 0.0
 
         if self.process and self.process.pid and self.state != ProcessState.STOPPED:
             try:
                 proc = psutil.Process(self.process.pid)
-                # Include child processes (Java threads/helpers)
-                procs = [proc] + proc.children(recursive=True)
-                cpu_percent = sum(p.cpu_percent(interval=None) for p in procs)
-                total_rss = sum(p.memory_info().rss for p in procs)
-                memory_mb = round(total_rss / (1024 * 1024), 1)
-                system_mem = psutil.virtual_memory().total
-                memory_percent = round((total_rss / system_mem) * 100, 1) if system_mem else 0.0
+                # Incluir subprocesos hijos (hilos o procesos Java)
+                procesos = [proc] + proc.children(recursive=True)
+                porcentaje_cpu = sum(p.cpu_percent(interval=None) for p in procesos)
+                total_rss = sum(p.memory_info().rss for p in procesos)
+                memoria_mb = round(total_rss / (1024 * 1024), 1)
+                memoria_sistema = psutil.virtual_memory().total
+                porcentaje_memoria = round((total_rss / memoria_sistema) * 100, 1) if memoria_sistema else 0.0
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
 
         return {
             "state": self.state.value,
             "pid": self.process.pid if self.process else None,
-            "uptime_seconds": uptime,
-            "cpu_percent": cpu_percent,
-            "memory_mb": memory_mb,
-            "memory_percent": memory_percent,
+            "uptime_seconds": tiempo_activo,
+            "cpu_percent": porcentaje_cpu,
+            "memory_mb": memoria_mb,
+            "memory_percent": porcentaje_memoria,
             "server_dir": str(self.server_dir),
         }
+
+    # Alias en inglés para compatibilidad
+    subscribe = suscribir
+    unsubscribe = desuscribir
+    _broadcast_log = _transmitir_registro
+    start = iniciar
+    stop = detener
+    restart = reiniciar
+    send_command = enviar_comando
+    get_metrics = obtener_metricas
+    _read_output = _leer_salida

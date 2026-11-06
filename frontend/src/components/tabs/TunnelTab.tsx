@@ -24,10 +24,10 @@ export const TunnelTab: React.FC<TunnelTabProps> = ({ status, onRefresh }) => {
     setCustomAlias(saved);
   }, []);
 
-  const handleStartTunnel = async () => {
+  const manejarIniciarTunel = async () => {
     setLoadingAction(true);
     try {
-      await api.startTunnel();
+      await api.iniciarTunel();
       onRefresh();
     } catch (err: any) {
       alert(`Error al iniciar túnel: ${err.message}`);
@@ -36,10 +36,10 @@ export const TunnelTab: React.FC<TunnelTabProps> = ({ status, onRefresh }) => {
     }
   };
 
-  const handleStopTunnel = async () => {
+  const manejarDetenerTunel = async () => {
     setLoadingAction(true);
     try {
-      await api.stopTunnel();
+      await api.detenerTunel();
       onRefresh();
     } catch (err: any) {
       alert(`Error al detener túnel: ${err.message}`);
@@ -48,16 +48,16 @@ export const TunnelTab: React.FC<TunnelTabProps> = ({ status, onRefresh }) => {
     }
   };
 
-  const displayAddress = tunnel?.public_address || customAlias;
+  const direccionMostrada = tunnel?.public_address || customAlias;
 
-  const handleCopy = () => {
-    if (!displayAddress) return;
-    navigator.clipboard.writeText(displayAddress);
+  const manejarCopiar = () => {
+    if (!direccionMostrada) return;
+    navigator.clipboard.writeText(direccionMostrada);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const handleSaveAlias = () => {
+  const manejarGuardarAlias = () => {
     setSavingAlias(true);
     localStorage.setItem('foxden_playit_alias', customAlias.trim());
     setTimeout(() => setSavingAlias(false), 1500);
@@ -80,7 +80,7 @@ export const TunnelTab: React.FC<TunnelTabProps> = ({ status, onRefresh }) => {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={handleStartTunnel}
+              onClick={manejarIniciarTunel}
               disabled={isRunning || loadingAction}
               className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-30 text-white rounded-lg text-xs font-semibold shadow transition-all active:scale-95"
             >
@@ -89,7 +89,7 @@ export const TunnelTab: React.FC<TunnelTabProps> = ({ status, onRefresh }) => {
             </button>
 
             <button
-              onClick={handleStopTunnel}
+              onClick={manejarDetenerTunel}
               disabled={!isRunning || loadingAction}
               className="flex items-center gap-1.5 px-3 py-2 bg-dark-700 hover:bg-dark-750 disabled:opacity-30 text-slate-300 rounded-lg text-xs font-semibold border border-dark-700 transition-all active:scale-95"
             >
@@ -176,14 +176,14 @@ export const TunnelTab: React.FC<TunnelTabProps> = ({ status, onRefresh }) => {
               </a>
             </div>
 
-            {displayAddress ? (
+            {direccionMostrada ? (
               <div className="flex items-center gap-2 bg-dark-900 border border-dark-700 rounded-lg p-2">
                 <span className="flex-1 font-mono text-base font-bold text-sky-400 px-3 truncate select-all">
-                  {displayAddress}
+                  {direccionMostrada}
                 </span>
                 <button
                   type="button"
-                  onClick={handleCopy}
+                  onClick={manejarCopiar}
                   className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-xs font-semibold shadow transition-all"
                 >
                   {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -230,7 +230,7 @@ export const TunnelTab: React.FC<TunnelTabProps> = ({ status, onRefresh }) => {
             />
             <button
               type="button"
-              onClick={handleSaveAlias}
+              onClick={manejarGuardarAlias}
               className="px-4 py-2 bg-dark-700 hover:bg-dark-750 text-slate-200 rounded-lg text-xs font-semibold border border-dark-700"
             >
               {savingAlias ? '✓ Guardado' : 'Guardar'}

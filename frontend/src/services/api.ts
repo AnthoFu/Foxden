@@ -1,103 +1,171 @@
+/**
+ * Cliente HTTP tipado para interactuar con la API REST de Foxden.
+ */
+
 import { JdkInfo, ServerFullConfig, ServerStatus } from '../types';
 
-async function handleResponse<T>(res: Response): Promise<T> {
+/**
+ * Procesa la respuesta de la API y lanza un error descriptivo si el estado HTTP no es exitoso.
+ */
+async function manejarRespuesta<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    let errorDetail = 'Request failed';
+    let detalleError = 'Error en la solicitud';
     try {
       const data = await res.json();
-      errorDetail = data.detail || data.message || errorDetail;
+      detalleError = data.detail || data.message || detalleError;
     } catch {
-      errorDetail = res.statusText || errorDetail;
+      detalleError = res.statusText || detalleError;
     }
-    throw new Error(errorDetail);
+    throw new Error(detalleError);
   }
   return res.json() as Promise<T>;
 }
 
+// Alias para compatibilidad
+export const handleResponse = manejarRespuesta;
+
 export const api = {
-  async getStatus(): Promise<ServerStatus> {
+  /**
+   * Obtiene las métricas y estado completo del servidor y túnel.
+   */
+  async obtenerEstado(): Promise<ServerStatus> {
     const res = await fetch('/api/status');
-    return handleResponse<ServerStatus>(res);
+    return manejarRespuesta<ServerStatus>(res);
   },
 
-  async startServer(): Promise<{ status: string }> {
+  /**
+   * Inicia el proceso de Minecraft.
+   */
+  async iniciarServidor(): Promise<{ status: string }> {
     const res = await fetch('/api/server/start', { method: 'POST' });
-    return handleResponse<{ status: string }>(res);
+    return manejarRespuesta<{ status: string }>(res);
   },
 
-  async stopServer(): Promise<{ status: string }> {
+  /**
+   * Detiene el servidor de Minecraft de forma segura.
+   */
+  async detenerServidor(): Promise<{ status: string }> {
     const res = await fetch('/api/server/stop', { method: 'POST' });
-    return handleResponse<{ status: string }>(res);
+    return manejarRespuesta<{ status: string }>(res);
   },
 
-  async restartServer(): Promise<{ status: string }> {
+  /**
+   * Reinicia el servidor de Minecraft.
+   */
+  async reiniciarServidor(): Promise<{ status: string }> {
     const res = await fetch('/api/server/restart', { method: 'POST' });
-    return handleResponse<{ status: string }>(res);
+    return manejarRespuesta<{ status: string }>(res);
   },
 
-  async sendCommand(command: string): Promise<{ status: string }> {
+  /**
+   * Envía un comando a la consola de Minecraft.
+   */
+  async enviarComando(comando: string): Promise<{ status: string }> {
     const res = await fetch('/api/server/command', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command }),
+      body: JSON.stringify({ command: comando }),
     });
-    return handleResponse<{ status: string }>(res);
+    return manejarRespuesta<{ status: string }>(res);
   },
 
-  async getConfig(): Promise<ServerFullConfig> {
+  /**
+   * Obtiene la configuración consolidada.
+   */
+  async obtenerConfiguracion(): Promise<ServerFullConfig> {
     const res = await fetch('/api/config');
-    return handleResponse<ServerFullConfig>(res);
+    return manejarRespuesta<ServerFullConfig>(res);
   },
 
-  async updateConfig(payload: any): Promise<{ status: string; config: ServerFullConfig }> {
+  /**
+   * Guarda cambios en la configuración.
+   */
+  async actualizarConfiguracion(carga: any): Promise<{ status: string; config: ServerFullConfig }> {
     const res = await fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(carga),
     });
-    return handleResponse<{ status: string; config: ServerFullConfig }>(res);
+    return manejarRespuesta<{ status: string; config: ServerFullConfig }>(res);
   },
 
-  async getJdks(): Promise<{ jdks: JdkInfo[] }> {
+  /**
+   * Lista los JDK instalados en el sistema.
+   */
+  async obtenerJdks(): Promise<{ jdks: JdkInfo[] }> {
     const res = await fetch('/api/jdks');
-    return handleResponse<{ jdks: JdkInfo[] }>(res);
+    return manejarRespuesta<{ jdks: JdkInfo[] }>(res);
   },
 
-  async startTunnel(): Promise<any> {
+  /**
+   * Inicia el túnel público Playit.
+   */
+  async iniciarTunel(): Promise<any> {
     const res = await fetch('/api/tunnel/start', { method: 'POST' });
-    return handleResponse<any>(res);
+    return manejarRespuesta<any>(res);
   },
 
-  async stopTunnel(): Promise<any> {
+  /**
+   * Detiene el túnel Playit.
+   */
+  async detenerTunel(): Promise<any> {
     const res = await fetch('/api/tunnel/stop', { method: 'POST' });
-    return handleResponse<any>(res);
+    return manejarRespuesta<any>(res);
   },
 
-  async getVersions(serverType: string, includeSnapshots: boolean = false): Promise<{ server_type: string; versions: string[] }> {
-    const res = await fetch(`/api/installer/versions?server_type=${serverType}&include_snapshots=${includeSnapshots}`);
-    return handleResponse<{ server_type: string; versions: string[] }>(res);
+  /**
+   * Obtiene la lista de versiones de Minecraft disponibles para instalar.
+   */
+  async obtenerVersiones(tipoServidor: string, incluirSnapshots: boolean = false): Promise<{ server_type: string; versions: string[] }> {
+    const res = await fetch(`/api/installer/versions?server_type=${tipoServidor}&include_snapshots=${incluirSnapshots}`);
+    return manejarRespuesta<{ server_type: string; versions: string[] }>(res);
   },
 
-  async getInstalledJars(): Promise<{ jars: string[] }> {
+  /**
+   * Lista los archivos ejecutables (JARs o run.sh) instalados.
+   */
+  async obtenerJarsInstalados(): Promise<{ jars: string[] }> {
     const res = await fetch('/api/installer/installed-jars');
-    return handleResponse<{ jars: string[] }>(res);
+    return manejarRespuesta<{ jars: string[] }>(res);
   },
 
-  async downloadVersion(serverType: string, version: string): Promise<any> {
+  /**
+   * Descarga e instala una versión específica.
+   */
+  async descargarVersion(tipoServidor: string, version: string): Promise<any> {
     const res = await fetch('/api/installer/download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ server_type: serverType, version }),
+      body: JSON.stringify({ server_type: tipoServidor, version }),
     });
-    return handleResponse<any>(res);
+    return manejarRespuesta<any>(res);
   },
 
-  async testDiscord(webhookUrl: string, showIp: boolean): Promise<{ status: string; message: string }> {
+  /**
+   * Envía un mensaje de prueba al webhook de Discord.
+   */
+  async probarDiscord(urlWebhook: string, mostrarIp: boolean): Promise<{ status: string; message: string }> {
     const res = await fetch('/api/discord/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ webhook_url: webhookUrl, show_ip: showIp }),
+      body: JSON.stringify({ webhook_url: urlWebhook, show_ip: mostrarIp }),
     });
-    return handleResponse<{ status: string; message: string }>(res);
+    return manejarRespuesta<{ status: string; message: string }>(res);
   },
+
+  // Alias en inglés para compatibilidad
+  getStatus() { return this.obtenerEstado(); },
+  startServer() { return this.iniciarServidor(); },
+  stopServer() { return this.detenerServidor(); },
+  restartServer() { return this.reiniciarServidor(); },
+  sendCommand(command: string) { return this.enviarComando(command); },
+  getConfig() { return this.obtenerConfiguracion(); },
+  updateConfig(payload: any) { return this.actualizarConfiguracion(payload); },
+  getJdks() { return this.obtenerJdks(); },
+  startTunnel() { return this.iniciarTunel(); },
+  stopTunnel() { return this.detenerTunel(); },
+  getVersions(serverType: string, includeSnapshots: boolean = false) { return this.obtenerVersiones(serverType, includeSnapshots); },
+  getInstalledJars() { return this.obtenerJarsInstalados(); },
+  downloadVersion(serverType: string, version: string) { return this.descargarVersion(serverType, version); },
+  testDiscord(webhookUrl: string, showIp: boolean) { return this.probarDiscord(webhookUrl, showIp); },
 };

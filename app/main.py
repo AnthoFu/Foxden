@@ -1,6 +1,6 @@
 """
-FastAPI application entry point.
-Mounts API routes, WebSocket handler, and static assets for the web dashboard.
+Punto de entrada de la aplicación FastAPI para Foxden.
+Monta las rutas de la API, el manejador de WebSocket y sirve los activos estáticos del frontend web.
 """
 
 from pathlib import Path
@@ -9,8 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import router as api_router, setup_routes, detect_software_info
-from app.api.websocket import router as ws_router, setup_console_websocket
+from app.api.routes import router as api_router, configurar_rutas, detectar_informacion_software
+from app.api.websocket import router as ws_router, configurar_websocket_consola
 from app.core.config import ConfigManager
 from app.core.discord import DiscordNotifier
 from app.core.installer import ServerInstaller
@@ -18,12 +18,18 @@ from app.core.process import MinecraftProcess
 from app.core.settings import SettingsManager
 from app.core.tunnel import PlayitTunnelManager
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-SERVER_DIR = BASE_DIR / "servidor_minecraft"
-STATIC_DIR = BASE_DIR / "app" / "static"
-FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
+DIRECTORIO_BASE = Path(__file__).resolve().parent.parent
+DIRECTORIO_SERVIDOR = DIRECTORIO_BASE / "servidor_minecraft"
+DIRECTORIO_ESTATICO = DIRECTORIO_BASE / "app" / "static"
+DIST_FRONTEND = DIRECTORIO_BASE / "frontend" / "dist"
 
-app = FastAPI(title="Foxden - Autonomous Minecraft Server Manager", version="1.0.0")
+# Alias para compatibilidad
+BASE_DIR = DIRECTORIO_BASE
+SERVER_DIR = DIRECTORIO_SERVIDOR
+STATIC_DIR = DIRECTORIO_ESTATICO
+FRONTEND_DIST = DIST_FRONTEND
+
+app = FastAPI(title="Foxden - Gestor Autónomo de Servidor Minecraft", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,21 +39,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Core singletons
-process_manager = MinecraftProcess(server_dir=SERVER_DIR)
-config_manager = ConfigManager(server_dir=SERVER_DIR)
-installer = ServerInstaller(server_dir=SERVER_DIR)
-tunnel_manager = PlayitTunnelManager(base_dir=BASE_DIR)
-settings_manager = SettingsManager(base_dir=BASE_DIR)
-discord_notifier = DiscordNotifier(
-    webhook_url=settings_manager.get("discord_webhook_url"),
-    show_ip=settings_manager.get("discord_show_ip", True),
-    enabled=settings_manager.get("discord_enabled", True),
+# Instancias únicas del núcleo (Singletons)
+administrador_proceso = MinecraftProcess(server_dir=DIRECTORIO_SERVIDOR)
+administrador_configuracion = ConfigManager(server_dir=DIRECTORIO_SERVIDOR)
+instalador = ServerInstaller(server_dir=DIRECTORIO_SERVIDOR)
+administrador_tunel = PlayitTunnelManager(base_dir=DIRECTORIO_BASE)
+administrador_ajustes = SettingsManager(base_dir=DIRECTORIO_BASE)
+notificador_discord = DiscordNotifier(
+    webhook_url=administrador_ajustes.obtener("discord_webhook_url"),
+    show_ip=administrador_ajustes.obtener("discord_show_ip", True),
+    enabled=administrador_ajustes.obtener("discord_enabled", True),
 )
 
+# Alias para compatibilidad
+process_manager = administrador_proceso
+config_manager = administrador_configuracion
+installer = instalador
+tunnel_manager = administrador_tunel
+settings_manager = administrador_ajustes
+discord_notifier = notificador_discord
 
-def format_uptime(seconds: float) -> str:
-    s = int(seconds)
+
+def formatear_tiempo_activo(segundos: float) -> str:
+    """Convierte segundos en una cadena legible de tiempo activo (ej. 2h 15m)."""
+    s = int(segundos)
     m = s // 60
     h = m // 60
     if h > 0:
@@ -57,97 +72,125 @@ def format_uptime(seconds: float) -> str:
     return f"{s}s"
 
 
-async def handle_server_ready():
-    target = settings_manager.get("target_jar", "server.jar")
-    info = detect_software_info(installer.server_dir, target)
-    props = config_manager.read_properties()
-    motd = props.get("motd", "A Minecraft Server")
-    ip = tunnel_manager.public_address or settings_manager.get("public_ip_alias")
+# Alias para compatibilidad
+format_uptime = formatear_tiempo_activo
 
-    if tunnel_manager.state != "RUNNING":
-        notice = (
+
+async def al_estar_servidor_listo():
+    """Callback ejecutado cuando Minecraft finaliza la carga y queda listo para recibir jugadores."""
+    objetivo = administrador_ajustes.obtener("target_jar", "server.jar")
+    info = detectar_informacion_software(instalador.server_dir, objetivo)
+    propiedades = administrador_configuracion.leer_propiedades()
+    motd = propiedades.get("motd", "A Minecraft Server")
+    ip = administrador_tunel.public_address or administrador_ajustes.obtener("public_ip_alias")
+
+    if administrador_tunel.state != "RUNNING":
+        aviso = (
             "[Foxden] ------------------------------------------------------------------\n"
             "[Foxden] ⚠️ AVISO: El servidor de Minecraft está listo, pero el TÚNEL PÚBLICO (Playit.gg) está APAGADO.\n"
             "[Foxden] 👉 Si estás en GitHub Codespaces o en la nube, nadie podrá conectarse hasta activar el túnel desde el panel.\n"
             "[Foxden] ------------------------------------------------------------------"
         )
-        process_manager._broadcast_log(notice)
+        administrador_proceso._transmitir_registro(aviso)
 
-    await discord_notifier.notify_server_online(
-        software_name=info["name"],
-        version=settings_manager.get("installed_version", "26.3"),
-        public_ip=ip,
+    await notificador_discord.notificar_servidor_en_linea(
+        nombre_software=info["name"],
+        version=administrador_ajustes.obtener("installed_version", "26.3"),
+        ip_publica=ip,
         motd=motd,
     )
 
 
-async def handle_server_stopped(uptime_seconds: float, return_code: int):
-    uptime_str = format_uptime(uptime_seconds)
-    was_crash = (return_code != 0)
-    await discord_notifier.notify_server_stopped(
-        uptime_str=uptime_str,
-        was_crash=was_crash,
-        return_code=return_code,
+# Alias para compatibilidad
+handle_server_ready = al_estar_servidor_listo
+
+
+async def al_detenerse_servidor(segundos_actividad: float, codigo_retorno: int):
+    """Callback ejecutado cuando el proceso de Minecraft finaliza."""
+    tiempo_str = formatear_tiempo_activo(segundos_actividad)
+    fue_caida = (codigo_retorno != 0)
+    await notificador_discord.notificar_servidor_detenido(
+        tiempo_activo_str=tiempo_str,
+        fue_caida=fue_caida,
+        codigo_salida=codigo_retorno,
     )
 
 
-process_manager.on_server_ready = handle_server_ready
-process_manager.on_server_stopped = handle_server_stopped
+# Alias para compatibilidad
+handle_server_stopped = al_detenerse_servidor
 
-# Attach endpoints
-setup_routes(
+administrador_proceso.on_server_ready = al_estar_servidor_listo
+administrador_proceso.on_server_stopped = al_detenerse_servidor
+
+# Enlazar rutas y WebSocket
+configurar_rutas(
     api_router,
-    process_manager,
-    config_mgr=config_manager,
-    installer=installer,
-    tunnel_mgr=tunnel_manager,
-    settings_mgr=settings_manager,
-    discord_notifier=discord_notifier,
+    administrador_proceso,
+    config_mgr=administrador_configuracion,
+    installer=instalador,
+    tunnel_mgr=administrador_tunel,
+    settings_mgr=administrador_ajustes,
+    discord_notifier=notificador_discord,
 )
-setup_console_websocket(ws_router, process_manager)
+configurar_websocket_consola(ws_router, administrador_proceso)
 
 app.include_router(api_router)
 app.include_router(ws_router)
 
-# Mount static files & modern frontend assets
-if (FRONTEND_DIST / "assets").exists():
-    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+# Montar activos estáticos del frontend React compilado
+if (DIST_FRONTEND / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=str(DIST_FRONTEND / "assets")), name="assets")
 
-if STATIC_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+if DIRECTORIO_ESTATICO.exists():
+    app.mount("/static", StaticFiles(directory=str(DIRECTORIO_ESTATICO)), name="static")
 
 
 @app.get("/")
-async def serve_index():
-    if (FRONTEND_DIST / "index.html").exists():
-        return FileResponse(FRONTEND_DIST / "index.html")
-    if (STATIC_DIR / "index.html").exists():
-        return FileResponse(STATIC_DIR / "index.html")
-    return {"message": "Foxden API running"}
+async def servir_inicio():
+    """Sirve la página de inicio del frontend React o la interfaz estática."""
+    if (DIST_FRONTEND / "index.html").exists():
+        return FileResponse(DIST_FRONTEND / "index.html")
+    if (DIRECTORIO_ESTATICO / "index.html").exists():
+        return FileResponse(DIRECTORIO_ESTATICO / "index.html")
+    return {"message": "Foxden API en ejecución"}
 
 
-@app.get("/{full_path:path}")
-async def serve_spa_fallback(full_path: str):
-    if full_path.startswith("api") or full_path.startswith("ws"):
+# Alias para compatibilidad
+serve_index = servir_inicio
+
+
+@app.get("/{ruta_completa:path}")
+async def servir_spa_alternativo(ruta_completa: str):
+    """Manejador alternativo para enrutamiento SPA del frontend."""
+    if ruta_completa.startswith("api") or ruta_completa.startswith("ws"):
         from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Not Found")
+        raise HTTPException(status_code=404, detail="No encontrado")
 
-    file_path = FRONTEND_DIST / full_path
-    if file_path.is_file():
-        return FileResponse(file_path)
+    archivo = DIST_FRONTEND / ruta_completa
+    if archivo.is_file():
+        return FileResponse(archivo)
 
-    if (FRONTEND_DIST / "index.html").exists():
-        return FileResponse(FRONTEND_DIST / "index.html")
-    if (STATIC_DIR / "index.html").exists():
-        return FileResponse(STATIC_DIR / "index.html")
+    if (DIST_FRONTEND / "index.html").exists():
+        return FileResponse(DIST_FRONTEND / "index.html")
+    if (DIRECTORIO_ESTATICO / "index.html").exists():
+        return FileResponse(DIRECTORIO_ESTATICO / "index.html")
+
     from fastapi import HTTPException
-    raise HTTPException(status_code=404, detail="Not Found")
+    raise HTTPException(status_code=404, detail="No encontrado")
+
+
+# Alias para compatibilidad
+serve_spa_fallback = servir_spa_alternativo
 
 
 @app.on_event("shutdown")
-async def on_shutdown():
-    # Gracefully stop processes if running
-    if process_manager.state != "STOPPED":
-        await process_manager.stop(timeout=10.0)
-    if tunnel_manager.state != "STOPPED":
-        await tunnel_manager.stop()
+async def al_apagar():
+    """Detiene ordenadamente los procesos activos antes de cerrar la aplicación."""
+    if administrador_proceso.state != "STOPPED":
+        await administrador_proceso.detener(timeout=10.0)
+    if administrador_tunel.state != "STOPPED":
+        await administrador_tunel.detener()
+
+
+# Alias para compatibilidad
+on_shutdown = al_apagar

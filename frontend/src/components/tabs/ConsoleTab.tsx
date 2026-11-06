@@ -1,6 +1,10 @@
+/**
+ * Pestaña de Consola en Tiempo Real para visualización de logs y envío de comandos a Minecraft.
+ */
+
 import React from 'react';
 import { Terminal, Send, Trash2, ArrowDownCircle } from 'lucide-react';
-import { useConsole } from '../../hooks/useConsole';
+import { useConsola } from '../../hooks/useConsole';
 
 export const ConsoleTab: React.FC = () => {
   const {
@@ -11,19 +15,19 @@ export const ConsoleTab: React.FC = () => {
     command,
     setCommand,
     terminalEndRef,
-    sendConsoleCommand,
-    handleKeyDown,
-    clearLogs,
-  } = useConsole();
+    enviarComandoConsola,
+    manejarTeclas,
+    limpiarRegistros,
+  } = useConsola();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const manejarEnvio = (e: React.FormEvent) => {
     e.preventDefault();
-    sendConsoleCommand();
+    enviarComandoConsola();
   };
 
   return (
     <div className="flex flex-col h-[calc(100vh-180px)] min-h-[500px] bg-dark-950 border border-dark-700 rounded-xl overflow-hidden shadow-xl">
-      {/* Console Toolbar */}
+      {/* Barra de Herramientas de la Consola */}
       <div className="bg-dark-800 border-b border-dark-700 px-4 py-2.5 flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">
           <Terminal className="w-4 h-4 text-fox-400" />
@@ -55,7 +59,7 @@ export const ConsoleTab: React.FC = () => {
           </label>
 
           <button
-            onClick={clearLogs}
+            onClick={limpiarRegistros}
             className="flex items-center gap-1 text-slate-400 hover:text-slate-200 transition-colors px-2 py-1 rounded hover:bg-dark-750"
             title="Limpiar registros en pantalla"
           >
@@ -65,7 +69,7 @@ export const ConsoleTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Terminal Output */}
+      {/* Salida de la Terminal */}
       <div className="flex-1 p-4 overflow-y-auto font-mono text-[13px] bg-dark-950 text-sky-300 space-y-1">
         {logs.length === 0 ? (
           <div className="text-slate-600 italic py-8 text-center select-none font-sans">
@@ -94,14 +98,14 @@ export const ConsoleTab: React.FC = () => {
         <div ref={terminalEndRef} />
       </div>
 
-      {/* Command Input Form */}
-      <form onSubmit={handleSubmit} className="bg-dark-800 border-t border-dark-700 p-2.5 flex items-center gap-2">
+      {/* Formulario de Entrada de Comandos */}
+      <form onSubmit={manejarEnvio} className="bg-dark-800 border-t border-dark-700 p-2.5 flex items-center gap-2">
         <span className="text-fox-500 font-mono font-bold pl-2 select-none">&gt;</span>
         <input
           type="text"
           value={command}
           onChange={(e) => setCommand(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onKeyDown={manejarTeclas}
           placeholder="Escribe un comando de Minecraft (ej: op mi_usuario, help, time set day)..."
           className="flex-1 bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-slate-100 font-mono focus:outline-none focus:border-fox-500 transition-colors placeholder:text-slate-500 placeholder:font-sans"
         />

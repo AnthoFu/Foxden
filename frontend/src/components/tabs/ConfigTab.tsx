@@ -34,9 +34,9 @@ export const ConfigTab: React.FC = () => {
   const [discordTestFeedback, setDiscordTestFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
   useEffect(() => {
-    async function loadData() {
+    async function cargarDatos() {
       try {
-        const [configData, jdksData] = await Promise.all([api.getConfig(), api.getJdks()]);
+        const [configData, jdksData] = await Promise.all([api.obtenerConfiguracion(), api.obtenerJdks()]);
 
         const s = configData.summary;
         if (s) {
@@ -60,15 +60,15 @@ export const ConfigTab: React.FC = () => {
 
         setJdks(jdksData.jdks || []);
       } catch (err) {
-        console.error('Error loading config:', err);
+        console.error('Error al cargar configuración:', err);
       } finally {
         setLoading(false);
       }
     }
-    loadData();
+    cargarDatos();
   }, []);
 
-  const handleSave = async (e: React.FormEvent) => {
+  const manejarGuardar = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setSaveFeedback(null);
@@ -94,7 +94,7 @@ export const ConfigTab: React.FC = () => {
     };
 
     try {
-      await api.updateConfig(payload);
+      await api.actualizarConfiguracion(payload);
       setSaveFeedback('✓ Configuración guardada correctamente');
       setTimeout(() => setSaveFeedback(null), 4000);
     } catch (err: any) {
@@ -104,7 +104,7 @@ export const ConfigTab: React.FC = () => {
     }
   };
 
-  const handleTestDiscord = async () => {
+  const manejarProbarDiscord = async () => {
     if (!discordWebhookUrl.trim()) {
       setDiscordTestFeedback({ type: 'error', msg: 'Ingresa primero la URL del webhook de Discord.' });
       return;
@@ -113,7 +113,7 @@ export const ConfigTab: React.FC = () => {
     setDiscordTestFeedback(null);
 
     try {
-      const res = await api.testDiscord(discordWebhookUrl.trim(), discordShowIp);
+      const res = await api.probarDiscord(discordWebhookUrl.trim(), discordShowIp);
       setDiscordTestFeedback({ type: 'success', msg: `✓ ${res.message || 'Notificación enviada con éxito'}` });
     } catch (err: any) {
       setDiscordTestFeedback({ type: 'error', msg: `✗ ${err.message || 'Error al conectar con Discord'}` });
@@ -132,7 +132,7 @@ export const ConfigTab: React.FC = () => {
   }
 
   return (
-    <form onSubmit={handleSave} className="space-y-6 max-w-4xl mx-auto pb-12">
+    <form onSubmit={manejarGuardar} className="space-y-6 max-w-4xl mx-auto pb-12">
       {/* Card 1: Server Properties */}
       <div className="bg-dark-800 border border-dark-700 rounded-xl p-6 shadow-md">
         <div className="border-b border-dark-700 pb-4 mb-6 flex items-center justify-between">
@@ -407,7 +407,7 @@ export const ConfigTab: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={handleTestDiscord}
+                onClick={manejarProbarDiscord}
                 disabled={testingDiscord || !discordWebhookUrl.trim()}
                 className="flex items-center gap-1.5 px-3 py-2 bg-dark-700 hover:bg-dark-750 text-slate-200 rounded-lg text-xs font-semibold border border-dark-700 disabled:opacity-40"
               >
