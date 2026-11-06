@@ -25,6 +25,7 @@ export interface ServerStatus {
   max_ram_gb: number;
   software_info: SoftwareInfo;
   installed_version: string;
+  installed_engine?: string;
   is_installed: boolean;
   active_jdk: string;
   tunnel: TunnelStatus;

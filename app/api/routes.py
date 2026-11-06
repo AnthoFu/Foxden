@@ -31,6 +31,7 @@ class ConfigUpdateRequest(BaseModel):
     min_ram_gb: Optional[int] = Field(default=None, ge=1, le=64)
     max_ram_gb: Optional[int] = Field(default=None, ge=1, le=64)
     target_jar: Optional[str] = Field(default=None)
+    installed_engine: Optional[str] = Field(default=None)
     selected_jdk: Optional[str] = Field(default=None)
     discord_enabled: Optional[bool] = Field(default=None)
     discord_webhook_url: Optional[str] = Field(default=None)
@@ -50,7 +51,11 @@ class DownloadVersionRequest(BaseModel):
     version: str = Field(..., description="Identificador de versión de Minecraft, ej. 26.2, 1.21.4")
 
 
-def detectar_informacion_software(directorio_servidor: Path, archivo_objetivo: str) -> dict:
+def detectar_informacion_software(
+    directorio_servidor: Path,
+    archivo_objetivo: str,
+    motor_instalado: Optional[str] = None,
+) -> dict:
     """Detecta el motor y la configuración activa del servidor de Minecraft instalado."""
     tiene_run_sh = (directorio_servidor / "run.sh").exists()
     tiene_objetivo = (directorio_servidor / archivo_objetivo).exists() if archivo_objetivo else False
@@ -65,19 +70,18 @@ def detectar_informacion_software(directorio_servidor: Path, archivo_objetivo: s
             "description": "Aún no has instalado ningún motor de Minecraft. Ve a 'Versiones e Instalador' para descargar uno.",
         }
 
-    objetivo_minus = archivo_objetivo.lower() if archivo_objetivo else ""
+    motor = (motor_instalado or "").lower().strip()
 
-    # Distinguir NeoForge de Forge clásico
-    es_neoforge = "neoforge" in objetivo_minus or (directorio_servidor / "libraries" / "net" / "neoforged").exists()
-    if not es_neoforge and (directorio_servidor / "run.sh").exists():
-        try:
-            contenido = (directorio_servidor / "run.sh").read_text(errors="ignore")
-            if "neoforged" in contenido:
-                es_neoforge = True
-        except Exception:
-            pass
-
-    if es_neoforge:
+    # Si se conoce explícitamente el motor instalado, se respeta con máxima prioridad
+    if motor == "vanilla":
+        return {
+            "name": "Minecraft Vanilla (Oficial)",
+            "icon": "🌱",
+            "type": "vanilla",
+            "runner": archivo_objetivo if archivo_objetivo else "server.jar",
+            "description": "Servidor oficial de Mojang sin modificaciones",
+        }
+    elif motor == "neoforge":
         return {
             "name": "NeoForge",
             "icon": "🔥",
@@ -85,8 +89,15 @@ def detectar_informacion_software(directorio_servidor: Path, archivo_objetivo: s
             "runner": archivo_objetivo if archivo_objetivo else "run.sh",
             "description": "Servidor moderno para mods de NeoForge (ejecuta run.sh)",
         }
-
-    if archivo_objetivo == "run.sh" or (directorio_servidor / "run.sh").exists() or "forge" in objetivo_minus:
+    elif motor == "fabric":
+        return {
+            "name": "Fabric Loader",
+            "icon": "🧵",
+            "type": "fabric",
+            "runner": archivo_objetivo if archivo_objetivo else "server.jar",
+            "description": "Servidor con soporte para mods de Fabric",
+        }
+    elif motor == "forge":
         return {
             "name": "Minecraft Forge",
             "icon": "🔨",
@@ -94,6 +105,36 @@ def detectar_informacion_software(directorio_servidor: Path, archivo_objetivo: s
             "runner": archivo_objetivo if archivo_objetivo else "run.sh",
             "description": "Servidor con soporte para mods de Forge (ejecuta run.sh)",
         }
+
+    # Inferencia secundaria basada en el archivo_objetivo activo
+    objetivo_minus = (archivo_objetivo or "").lower()
+
+    if archivo_objetivo == "run.sh" or (tiene_run_sh and not tiene_objetivo):
+        es_neoforge = False
+        if (directorio_servidor / "run.sh").exists():
+            try:
+                contenido = (directorio_servidor / "run.sh").read_text(errors="ignore")
+                if "neoforged" in contenido or "neoforge" in contenido:
+                    es_neoforge = True
+            except Exception:
+                pass
+
+        if es_neoforge:
+            return {
+                "name": "NeoForge",
+                "icon": "🔥",
+                "type": "neoforge",
+                "runner": "run.sh",
+                "description": "Servidor moderno para mods de NeoForge (ejecuta run.sh)",
+            }
+        return {
+            "name": "Minecraft Forge",
+            "icon": "🔨",
+            "type": "forge",
+            "runner": "run.sh",
+            "description": "Servidor con soporte para mods de Forge (ejecuta run.sh)",
+        }
+
     if "fabric" in objetivo_minus or (directorio_servidor / ".fabric").exists():
         return {
             "name": "Fabric Loader",
@@ -102,6 +143,25 @@ def detectar_informacion_software(directorio_servidor: Path, archivo_objetivo: s
             "runner": archivo_objetivo if archivo_objetivo else "server.jar",
             "description": "Servidor con soporte para mods de Fabric",
         }
+
+    if "forge" in objetivo_minus:
+        return {
+            "name": "Minecraft Forge",
+            "icon": "🔨",
+            "type": "forge",
+            "runner": archivo_objetivo,
+            "description": "Servidor con soporte para mods de Forge",
+        }
+
+    if "neoforge" in objetivo_minus:
+        return {
+            "name": "NeoForge",
+            "icon": "🔥",
+            "type": "neoforge",
+            "runner": archivo_objetivo,
+            "description": "Servidor moderno para mods de NeoForge",
+        }
+
     return {
         "name": "Minecraft Vanilla (Oficial)",
         "icon": "🌱",
@@ -132,10 +192,14 @@ def configurar_rutas(
         """Devuelve el estado completo y métricas de Foxden."""
         metricas = proceso.obtener_metricas()
         objetivo = settings_mgr.obtener("target_jar", "server.jar")
+        motor = settings_mgr.obtener("installed_engine", "")
         metricas["target_jar"] = objetivo
+        metricas["installed_engine"] = motor
         metricas["min_ram_gb"] = settings_mgr.obtener("min_ram_gb", 2)
         metricas["max_ram_gb"] = settings_mgr.obtener("max_ram_gb", 4)
-        metricas["software_info"] = detectar_informacion_software(installer.server_dir, objetivo)
+        metricas["software_info"] = detectar_informacion_software(
+            installer.server_dir, objetivo, motor_instalado=motor
+        )
         metricas["installed_version"] = settings_mgr.obtener("installed_version", "")
         metricas["is_installed"] = installer.esta_servidor_instalado()
         metricas["active_jdk"] = settings_mgr.obtener("selected_jdk", "auto")
@@ -200,9 +264,9 @@ def configurar_rutas(
         bin_java = info_jdk.get("path", "java")
         entorno = gestor_jdk.construir_entorno_para_jdk(info_jdk)
 
-        # Si el objetivo es run.sh (Forge/NeoForge), invocar vía bash
-        if objetivo == "run.sh" or (installer.server_dir / "run.sh").exists():
-            proceso.launch_command = ["bash", objetivo]
+        # Si el objetivo explícito es run.sh (Forge/NeoForge), invocar vía bash
+        if objetivo == "run.sh":
+            proceso.launch_command = ["bash", "run.sh"]
         else:
             proceso.launch_command = [
                 bin_java,
@@ -248,18 +312,22 @@ def configurar_rutas(
         resumen = config_mgr.obtener_resumen_ajustes()
         todas_las_propiedades = config_mgr.leer_propiedades()
         objetivo = settings_mgr.obtener("target_jar", "server.jar")
+        motor = settings_mgr.obtener("installed_engine", "")
         return {
             "summary": resumen,
             "all_properties": todas_las_propiedades,
             "min_ram_gb": settings_mgr.obtener("min_ram_gb", 2),
             "max_ram_gb": settings_mgr.obtener("max_ram_gb", 4),
             "target_jar": objetivo,
+            "installed_engine": motor,
             "selected_jdk": settings_mgr.obtener("selected_jdk", "auto"),
             "discord_enabled": settings_mgr.obtener("discord_enabled", True),
             "discord_webhook_url": discord_notifier.webhook_url or "",
             "discord_show_ip": discord_notifier.show_ip,
             "public_ip_alias": settings_mgr.obtener("public_ip_alias", ""),
-            "software_info": detectar_informacion_software(installer.server_dir, objetivo),
+            "software_info": detectar_informacion_software(
+                installer.server_dir, objetivo, motor_instalado=motor
+            ),
             "tunnel": tunnel_mgr.obtener_estado(),
         }
 
@@ -276,6 +344,27 @@ def configurar_rutas(
             actualizaciones["max_ram_gb"] = solicitud.max_ram_gb
         if solicitud.target_jar is not None:
             actualizaciones["target_jar"] = solicitud.target_jar
+            jar_minus = solicitud.target_jar.lower()
+            if jar_minus == "run.sh":
+                es_neo = False
+                if (installer.server_dir / "run.sh").exists():
+                    try:
+                        es_neo = "neoforged" in (installer.server_dir / "run.sh").read_text(errors="ignore")
+                    except Exception:
+                        pass
+                actualizaciones["installed_engine"] = "neoforge" if es_neo else "forge"
+            elif "forge" in jar_minus:
+                actualizaciones["installed_engine"] = "forge"
+            elif "fabric" in jar_minus:
+                actualizaciones["installed_engine"] = "fabric"
+            elif "neoforge" in jar_minus:
+                actualizaciones["installed_engine"] = "neoforge"
+            else:
+                actualizaciones["installed_engine"] = "vanilla"
+
+        if solicitud.installed_engine is not None:
+            actualizaciones["installed_engine"] = solicitud.installed_engine.lower()
+
         if solicitud.selected_jdk is not None:
             actualizaciones["selected_jdk"] = solicitud.selected_jdk
         if solicitud.discord_enabled is not None:
@@ -344,16 +433,23 @@ def configurar_rutas(
         try:
             archivo_objetivo = await installer.descargar_servidor(solicitud.server_type, solicitud.version)
             config_mgr.asegurar_eula_aceptado()
+            motor = solicitud.server_type.lower()
             settings_mgr.actualizar({
                 "target_jar": archivo_objetivo.name,
                 "installed_version": solicitud.version,
+                "installed_engine": motor,
             })
-            info_software = detectar_informacion_software(installer.server_dir, archivo_objetivo.name)
+            info_software = detectar_informacion_software(
+                installer.server_dir,
+                archivo_objetivo.name,
+                motor_instalado=motor,
+            )
             return {
                 "status": "success",
                 "message": f"{info_software['name']} ({solicitud.version}) listo para iniciar",
                 "target_jar": archivo_objetivo.name,
                 "installed_version": solicitud.version,
+                "installed_engine": motor,
                 "software_info": info_software,
             }
         except Exception as e:

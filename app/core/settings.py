@@ -15,6 +15,7 @@ AJUSTES_PREDETERMINADOS = {
     "max_ram_gb": 4,
     "target_jar": "server.jar",
     "installed_version": "26.3",
+    "installed_engine": "vanilla",
     "selected_jdk": "auto",
     "discord_webhook_url": "",
     "discord_show_ip": True,

@@ -163,6 +163,16 @@ class TestFoxdenCore(unittest.TestCase):
         info_neoforge = detectar_informacion_software(self.server_path, "run.sh")
         self.assertEqual(info_neoforge["type"], "neoforge")
 
+        # Caso crítico: residuos de NeoForge en disco pero con Vanilla instalado
+        (self.server_path / "libraries" / "net" / "neoforged").mkdir(parents=True, exist_ok=True)
+        info_con_residuos = detectar_informacion_software(
+            self.server_path,
+            "server.jar",
+            motor_instalado="vanilla",
+        )
+        self.assertEqual(info_con_residuos["type"], "vanilla")
+        self.assertEqual(info_con_residuos["name"], "Minecraft Vanilla (Oficial)")
+
 
 class TestFoxdenAPI(unittest.TestCase):
     @classmethod

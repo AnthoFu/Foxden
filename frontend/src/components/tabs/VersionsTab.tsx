@@ -9,13 +9,23 @@ interface VersionsTabProps {
 }
 
 export const VersionsTab: React.FC<VersionsTabProps> = ({ status, onInstalled }) => {
-  const [serverType, setServerType] = useState<string>('neoforge');
+  const motorDetectado = status?.installed_engine || (status?.software_info?.type !== 'none' ? status?.software_info?.type : 'vanilla') || 'vanilla';
+  const [serverType, setServerType] = useState<string>(motorDetectado);
   const [versions, setVersions] = useState<string[]>([]);
   const [selectedVersion, setSelectedVersion] = useState<string>('');
   const [includeSnapshots, setIncludeSnapshots] = useState<boolean>(false);
   const [loadingVersions, setLoadingVersions] = useState<boolean>(false);
   const [downloading, setDownloading] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  // Sincronizar serverType inicial con el motor instalado
+  useEffect(() => {
+    if (status?.installed_engine) {
+      setServerType(status.installed_engine);
+    } else if (status?.software_info?.type && status.software_info.type !== 'none') {
+      setServerType(status.software_info.type);
+    }
+  }, [status?.installed_engine, status?.software_info?.type]);
 
   // Manual jars
   const [installedJars, setInstalledJars] = useState<string[]>([]);

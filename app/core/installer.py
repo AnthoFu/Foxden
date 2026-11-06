@@ -185,6 +185,14 @@ class ServerInstaller:
 
         async with httpx.AsyncClient(timeout=90.0, follow_redirects=True) as cliente:
             if tipo_servidor == "vanilla":
+                # Eliminar run.sh previo si existía de una instalación de Forge/NeoForge
+                run_sh = self.server_dir / "run.sh"
+                if run_sh.exists():
+                    try:
+                        run_sh.unlink()
+                    except Exception:
+                        pass
+
                 manifiesto = await self.obtener_manifiesto_mojang()
                 ver_objetivo = next((v for v in manifiesto.get("versions", []) if v["id"] == version), None)
                 if not ver_objetivo:
@@ -205,6 +213,14 @@ class ServerInstaller:
                 return ruta_destino
 
             elif tipo_servidor == "fabric":
+                # Eliminar run.sh previo si existía de una instalación de Forge/NeoForge
+                run_sh = self.server_dir / "run.sh"
+                if run_sh.exists():
+                    try:
+                        run_sh.unlink()
+                    except Exception:
+                        pass
+
                 res_loader = await cliente.get(f"{self.URL_META_FABRIC}/loader")
                 res_loader.raise_for_status()
                 version_loader = res_loader.json()[0]["version"]
