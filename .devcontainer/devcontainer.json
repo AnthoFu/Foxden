@@ -3,8 +3,8 @@
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
   "features": {
     "ghcr.io/devcontainers/features/java:1": {
-      "version": "latest",
-      "additionalVersions": "17,21,25"
+      "version": "21",
+      "additionalVersions": "17,25"
     },
     "ghcr.io/devcontainers/features/python:1": {
       "version": "3.12"

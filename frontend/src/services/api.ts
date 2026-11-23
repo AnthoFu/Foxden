@@ -130,6 +130,14 @@ export const api = {
   },
 
   /**
+   * Obtiene las compilaciones oficiales publicadas de NeoForge para una versión de Minecraft.
+   */
+  async obtenerCompilacionesNeoForge(mcVersion: string): Promise<{ mc_version: string; builds: string[] }> {
+    const res = await fetch(`/api/installer/neoforge-builds?mc_version=${encodeURIComponent(mcVersion)}`);
+    return manejarRespuesta<{ mc_version: string; builds: string[] }>(res);
+  },
+
+  /**
    * Lista los archivos ejecutables (JARs o run.sh) instalados.
    */
   async obtenerJarsInstalados(): Promise<{ jars: string[] }> {
@@ -138,13 +146,13 @@ export const api = {
   },
 
   /**
-   * Descarga e instala una versión específica.
+   * Descarga e instala una versión específica con opción de compilación personalizada.
    */
-  async descargarVersion(tipoServidor: string, version: string): Promise<any> {
+  async descargarVersion(tipoServidor: string, version: string, build?: string): Promise<any> {
     const res = await fetch('/api/installer/download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ server_type: tipoServidor, version }),
+      body: JSON.stringify({ server_type: tipoServidor, version, build }),
     });
     return manejarRespuesta<any>(res);
   },

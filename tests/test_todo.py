@@ -117,6 +117,28 @@ class TestFoxdenCore(unittest.TestCase):
         env = jdk_mgr.construir_entorno_para_jdk(best_121)
         self.assertIsInstance(env, dict)
 
+        # Verificar que si existe Java 27 experimental, NO se elija para 1.21 o 1.20
+        jdks_simulados = [
+            {"major": 27, "path": "/usr/lib/jvm/java-27/bin/java", "name": "Java 27", "home": "/usr/lib/jvm/java-27"},
+            {"major": 21, "path": "/usr/lib/jvm/java-21/bin/java", "name": "Java 21", "home": "/usr/lib/jvm/java-21"},
+            {"major": 17, "path": "/usr/lib/jvm/java-17/bin/java", "name": "Java 17", "home": "/usr/lib/jvm/java-17"},
+        ]
+        with patch.object(jdk_mgr, "listar_jdks_instalados", return_value=jdks_simulados):
+            elegido_121 = jdk_mgr.obtener_mejor_jdk_para_version("1.21.1")
+            self.assertEqual(elegido_121["major"], 21)
+
+            elegido_120 = jdk_mgr.obtener_mejor_jdk_para_version("1.20.1")
+            self.assertEqual(elegido_120["major"], 17)
+
+        # Si no hay Java 17 pero sí 21 y 27, para 1.20 debe preferir Java 21 antes que Java 27
+        jdks_sin_17 = [
+            {"major": 27, "path": "/usr/lib/jvm/java-27/bin/java", "name": "Java 27", "home": "/usr/lib/jvm/java-27"},
+            {"major": 21, "path": "/usr/lib/jvm/java-21/bin/java", "name": "Java 21", "home": "/usr/lib/jvm/java-21"},
+        ]
+        with patch.object(jdk_mgr, "listar_jdks_instalados", return_value=jdks_sin_17):
+            elegido_fallback = jdk_mgr.obtener_mejor_jdk_para_version("1.20.1")
+            self.assertEqual(elegido_fallback["major"], 21)
+
     def test_process_manager_metricas(self):
         """Verifica la inicialización y métricas de MinecraftProcess."""
         proc = MinecraftProcess(server_dir=self.server_path)
@@ -226,6 +248,18 @@ class TestFoxdenAPI(unittest.TestCase):
         res_data = res_post.json()
         self.assertEqual(res_data["status"], "updated")
         self.assertEqual(res_data["config"]["min_ram_gb"], 3)
+
+    def test_endpoint_neoforge_builds(self):
+        """Verifica que el endpoint /api/installer/neoforge-builds devuelva las compilaciones de Maven."""
+        res = self.client.get("/api/installer/neoforge-builds?mc_version=1.21.1")
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["mc_version"], "1.21.1")
+        self.assertIn("builds", data)
+        self.assertIsInstance(data["builds"], list)
+        self.assertTrue(len(data["builds"]) > 0)
+        # La build 21.1.218 debe figurar en el catálogo de 1.21.1
+        self.assertIn("21.1.218", data["builds"])
 
 
 if __name__ == "__main__":

@@ -42,6 +42,17 @@ class ServerInstaller:
         self._mojang_manifest_cache: Optional[dict] = None
         self._forge_promos_cache: Optional[dict] = None
         self._neoforge_manifest_cache: Optional[Dict[str, str]] = None
+        self._neoforge_builds_cache: Optional[Dict[str, List[str]]] = None
+
+    @staticmethod
+    def _clave_version_semver(v: str) -> List[int]:
+        partes = []
+        for p in re.split(r"[.\-]", v):
+            try:
+                partes.append(int(p))
+            except ValueError:
+                partes.append(0)
+        return partes
 
     async def obtener_manifiesto_mojang(self) -> dict:
         """Obtiene el manifiesto oficial de versiones publicado por Mojang."""
@@ -67,7 +78,10 @@ class ServerInstaller:
             return self._neoforge_manifest_cache
 
         mapeo: Dict[str, str] = {}
+        builds_map: Dict[str, List[str]] = {}
+
         # 1.20.1 se aloja bajo net.neoforged:forge
+        builds_map["1.20.1"] = ["1.20.1-47.1.106", "1.20.1-47.1.105", "1.20.1-47.1.104"]
         mapeo["1.20.1"] = "1.20.1-47.1.106"
 
         try:
@@ -94,31 +108,45 @@ class ServerInstaller:
                         else:
                             continue
 
-                        actual = mapeo.get(mc_ver)
-                        if not actual or ("beta" in actual and "beta" not in etiqueta) or ("beta" not in etiqueta):
-                            mapeo[mc_ver] = v
+                        builds_map.setdefault(mc_ver, []).append(v)
+
+                    for mc, b_list in builds_map.items():
+                        ordenadas = sorted(list(set(b_list)), key=self._clave_version_semver, reverse=True)
+                        builds_map[mc] = ordenadas
+                        mapeo[mc] = ordenadas[0]
 
         except Exception:
             pass
 
         # Catálogo de respaldo si Maven no responde
         if not mapeo or len(mapeo) <= 1:
-            mapeo.update({
-                "26.3": "26.3.0.101",
-                "26.2": "26.2.0.93",
-                "26.1": "26.1.2.126",
-                "1.21.4": "21.4.161",
-                "1.21.3": "21.3.100",
-                "1.21.1": "21.1.265",
-                "1.21": "21.0.167",
-                "1.20.6": "20.6.144",
-                "1.20.4": "20.4.253",
-                "1.20.2": "20.2.93",
-                "1.20.1": "1.20.1-47.1.106",
-            })
+            respaldo = {
+                "26.3": ["26.3.0.101"],
+                "26.2": ["26.2.0.93"],
+                "26.1": ["26.1.2.126"],
+                "1.21.4": ["21.4.161", "21.4.160"],
+                "1.21.3": ["21.3.100"],
+                "1.21.1": ["21.1.267", "21.1.266", "21.1.265", "21.1.218", "21.1.0"],
+                "1.21": ["21.0.167"],
+                "1.20.6": ["20.6.144"],
+                "1.20.4": ["20.4.253"],
+                "1.20.2": ["20.2.93"],
+                "1.20.1": ["1.20.1-47.1.106", "1.20.1-47.1.105"],
+            }
+            for k, lista in respaldo.items():
+                builds_map.setdefault(k, lista)
+                mapeo.setdefault(k, lista[0])
 
         self._neoforge_manifest_cache = mapeo
+        self._neoforge_builds_cache = builds_map
         return self._neoforge_manifest_cache
+
+    async def obtener_compilaciones_neoforge(self, mc_version: str) -> List[str]:
+        """Obtiene todas las compilaciones disponibles de NeoForge para una versión de Minecraft."""
+        if self._neoforge_builds_cache is None:
+            await self.obtener_manifiesto_neoforge()
+        limpia = mc_version.strip()
+        return self._neoforge_builds_cache.get(limpia, []) if self._neoforge_builds_cache else []
 
     async def obtener_versiones(self, tipo_servidor: str = "vanilla", incluir_snapshots: bool = False) -> List[str]:
         """Obtiene las versiones disponibles según el tipo de servidor (vanilla, fabric, forge, neoforge)."""
@@ -177,7 +205,7 @@ class ServerInstaller:
 
         return ["26.3", "26.2", "26.1", "1.21.4", "1.21.3", "1.21.1", "1.20.4", "1.20.1", "1.19.4", "1.18.2", "1.16.5", "1.12.2"]
 
-    async def descargar_servidor(self, tipo_servidor: str, version: str) -> Path:
+    async def descargar_servidor(self, tipo_servidor: str, version: str, build: Optional[str] = None) -> Path:
         """Descarga e instala el ejecutable oficial del servidor de Minecraft seleccionado."""
         self.server_dir.mkdir(parents=True, exist_ok=True)
         tipo_servidor = tipo_servidor.lower()
@@ -286,7 +314,7 @@ class ServerInstaller:
 
             elif tipo_servidor == "neoforge":
                 mapeo = await self.obtener_manifiesto_neoforge()
-                ver_compilacion = mapeo.get(version) or version
+                ver_compilacion = (build.strip() if build and build.strip() else None) or mapeo.get(version) or version
                 ruta_instalador = self.server_dir / "neoforge-installer.jar"
 
                 if version == "1.20.1" or "1.20.1" in ver_compilacion:
@@ -363,6 +391,7 @@ class ServerInstaller:
     get_mojang_manifest = obtener_manifiesto_mojang
     get_forge_promos = obtener_promociones_forge
     get_neoforge_manifest = obtener_manifiesto_neoforge
+    get_neoforge_builds = obtener_compilaciones_neoforge
     get_versions = obtener_versiones
     download_server = descargar_servidor
     is_server_installed = esta_servidor_instalado

@@ -18,6 +18,12 @@ export const VersionsTab: React.FC<VersionsTabProps> = ({ status, onInstalled })
   const [downloading, setDownloading] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
+  // Compilaciones de NeoForge
+  const [neoforgeBuilds, setNeoforgeBuilds] = useState<string[]>([]);
+  const [selectedBuild, setSelectedBuild] = useState<string>('latest');
+  const [customBuild, setCustomBuild] = useState<string>('');
+  const [loadingBuilds, setLoadingBuilds] = useState<boolean>(false);
+
   // Sincronizar serverType inicial con el motor instalado
   useEffect(() => {
     if (status?.installed_engine) {
@@ -67,16 +73,57 @@ export const VersionsTab: React.FC<VersionsTabProps> = ({ status, onInstalled })
     cargarJars();
   }, [status?.target_jar]);
 
+  // Cargar compilaciones específicas de NeoForge al cambiar versión
+  useEffect(() => {
+    if (serverType !== 'neoforge' || !selectedVersion) {
+      setNeoforgeBuilds([]);
+      setSelectedBuild('latest');
+      setCustomBuild('');
+      return;
+    }
+
+    async function cargarBuilds() {
+      setLoadingBuilds(true);
+      try {
+        const res = await api.obtenerCompilacionesNeoForge(selectedVersion);
+        const lista = res.builds || [];
+        setNeoforgeBuilds(lista);
+        if (lista.length > 0) {
+          setSelectedBuild(lista[0]);
+        } else {
+          setSelectedBuild('latest');
+        }
+      } catch (err) {
+        console.error('Error al cargar compilaciones de NeoForge:', err);
+        setNeoforgeBuilds([]);
+        setSelectedBuild('latest');
+      } finally {
+        setLoadingBuilds(false);
+      }
+    }
+    cargarBuilds();
+  }, [serverType, selectedVersion]);
+
   const manejarDescarga = async () => {
     if (!selectedVersion) return;
     setDownloading(true);
     setFeedback(null);
 
+    let buildParaInstalar: string | undefined = undefined;
+    if (serverType === 'neoforge') {
+      if (selectedBuild === 'custom') {
+        buildParaInstalar = customBuild.trim() || undefined;
+      } else if (selectedBuild && selectedBuild !== 'latest') {
+        buildParaInstalar = selectedBuild;
+      }
+    }
+
     try {
-      const res = await api.descargarVersion(serverType, selectedVersion);
+      const res = await api.descargarVersion(serverType, selectedVersion, buildParaInstalar);
+      const detalleVersion = buildParaInstalar ? `${selectedVersion} (${buildParaInstalar})` : selectedVersion;
       setFeedback({
         type: 'success',
-        msg: `✓ ¡${res.software_info?.name || serverType.toUpperCase()} ${selectedVersion} instalado con éxito y listo para iniciar!`,
+        msg: `✓ ¡${res.software_info?.name || serverType.toUpperCase()} ${detalleVersion} instalado con éxito y listo para iniciar!`,
       });
       onInstalled();
     } catch (err: any) {
@@ -293,6 +340,60 @@ export const VersionsTab: React.FC<VersionsTabProps> = ({ status, onInstalled })
               </label>
             </div>
           </div>
+
+          {/* Selector avanzado de compilación de NeoForge */}
+          {serverType === 'neoforge' && (
+            <div className="bg-dark-750/70 border border-dark-700/80 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  Compilación de NeoForge (Build)
+                </label>
+                <span className="text-[11px] text-slate-400">
+                  {loadingBuilds ? 'Consultando compilaciones en Maven...' : `${neoforgeBuilds.length} compilaciones disponibles`}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <select
+                  value={selectedBuild}
+                  onChange={(e) => setSelectedBuild(e.target.value)}
+                  disabled={loadingBuilds || downloading}
+                  className="w-full bg-dark-900 border border-dark-700 rounded-lg px-3.5 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-fox-500 transition-colors disabled:opacity-50"
+                >
+                  {neoforgeBuilds.length > 0 ? (
+                    <>
+                      <option value={neoforgeBuilds[0]}>
+                        ⭐ {neoforgeBuilds[0]} (Última recomendada)
+                      </option>
+                      {neoforgeBuilds.slice(1).map((b) => (
+                        <option key={b} value={b}>
+                          Build {b}
+                        </option>
+                      ))}
+                      <option value="custom">✏️ Ingresar compilación manual...</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="latest">Última disponible</option>
+                      <option value="custom">✏️ Ingresar compilación manual...</option>
+                    </>
+                  )}
+                </select>
+
+                {selectedBuild === 'custom' && (
+                  <input
+                    type="text"
+                    value={customBuild}
+                    onChange={(e) => setCustomBuild(e.target.value)}
+                    placeholder="Ej: 21.1.218 o 21.1.268"
+                    className="w-full bg-dark-900 border border-fox-500/50 rounded-lg px-3.5 py-2 text-xs text-slate-100 font-mono placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-fox-500"
+                  />
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400 leading-normal">
+                💡 Consejo: Si un modpack requiere una compilación específica (como <code className="text-fox-400">21.1.218</code> para compatibilidad con Werewolves), selecciónala aquí antes de instalar.
+              </p>
+            </div>
+          )}
 
           {/* Download Button & Feedback */}
           <div className="pt-3 flex flex-col sm:flex-row sm:items-center gap-4">

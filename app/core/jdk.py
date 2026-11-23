@@ -19,25 +19,49 @@ class JdkManager:
 
     def listar_jdks_instalados(self) -> List[Dict]:
         """Escanea el sistema en busca de entornos Java instalados."""
-        candidatos = [
+        candidatos: List[Path] = [
             Path("/usr/lib/jvm/java-25-openjdk/bin/java"),
             Path("/usr/lib/jvm/java-21-openjdk/bin/java"),
             Path("/usr/lib/jvm/java-17-temurin-jdk/bin/java"),
             Path("/usr/bin/java"),
         ]
 
-        # Escanear subdirectorios dentro de /usr/lib/jvm
+        # 1. Escanear subdirectorios dentro de /usr/lib/jvm
         dir_jvm = Path("/usr/lib/jvm")
         if dir_jvm.exists():
             for p in dir_jvm.glob("*/bin/java"):
-                if p not in candidatos:
+                candidatos.append(p)
+
+        # 2. Escanear SDKMAN en rutas de sistema y usuario (típico en devcontainers/Codespaces)
+        rutas_sdkman = [
+            Path("/usr/local/sdkman/candidates/java"),
+            Path.home() / ".sdkman/candidates/java",
+        ]
+        for dir_sdk in rutas_sdkman:
+            if dir_sdk.exists():
+                for p in dir_sdk.glob("*/bin/java"):
                     candidatos.append(p)
+
+        # 3. Escanear ASDF
+        dir_asdf = Path.home() / ".asdf/installs/java"
+        if dir_asdf.exists():
+            for p in dir_asdf.glob("*/bin/java"):
+                candidatos.append(p)
+
+        # 4. Escanear JAVA_HOME si está definido en el entorno
+        java_home_env = os.environ.get("JAVA_HOME")
+        if java_home_env:
+            candidatos.append(Path(java_home_env) / "bin" / "java")
 
         encontrados = []
         rutas_vistas = set()
 
         for ruta_bin in candidatos:
-            resuelta = ruta_bin.resolve()
+            try:
+                resuelta = ruta_bin.resolve()
+            except Exception:
+                continue
+
             if not resuelta.exists() or str(resuelta) in rutas_vistas:
                 continue
             rutas_vistas.add(str(resuelta))
@@ -67,30 +91,38 @@ class JdkManager:
         if not jdks:
             return {"major": 0, "path": "java", "name": "Java predeterminado del sistema", "home": ""}
 
-        # Requerimientos de Java según versión de Minecraft:
-        # Minecraft 26.x requiere Java 25 (class file 69.0)
-        # Minecraft 1.20.5 - 1.21.x requiere Java 21 (class file 65.0)
-        # Minecraft 1.18 - 1.20.4 requiere Java 17 (class file 61.0)
+        # Requerimientos de Java según versión oficial de Minecraft:
+        # Minecraft 26.x (snapshots futuros) -> Java 25
+        # Minecraft 1.20.5 - 1.21.x -> Java 21 (LTS)
+        # Minecraft 1.18 - 1.20.4 -> Java 17 (LTS)
+        # Minecraft 1.17.x -> Java 17 (o 16)
+        # Minecraft < 1.17 -> Java 8 (o 11/17 según modloader)
         mayor_requerido = 17
         if version_mc:
-            v_limpia = version_mc.strip()
+            v_limpia = version_mc.strip().lower()
             if v_limpia.startswith("26"):
                 mayor_requerido = 25
-            elif v_limpia.startswith("1.21") or v_limpia.startswith("1.20.5") or v_limpia.startswith("1.20.6"):
+            elif v_limpia.startswith("1.21") or v_limpia.startswith("21.") or v_limpia.startswith("1.20.5") or v_limpia.startswith("1.20.6"):
                 mayor_requerido = 21
+            elif v_limpia.startswith("1.18") or v_limpia.startswith("1.19") or v_limpia.startswith("1.20") or v_limpia.startswith("20."):
+                mayor_requerido = 17
+            elif v_limpia.startswith("1.17"):
+                mayor_requerido = 17
+            elif any(v_limpia.startswith(pfx) for pfx in ["1.7", "1.8", "1.12", "1.16"]):
+                mayor_requerido = 8
 
-        # Buscar coincidencia exacta de versión
+        # 1. Prioridad: Coincidencia exacta de versión
         for jdk in jdks:
             if jdk["major"] == mayor_requerido:
                 return jdk
 
-        # Si hay una versión superior disponible, usarla
-        for jdk in jdks:
-            if jdk["major"] >= mayor_requerido:
-                return jdk
+        # 2. Si no hay coincidencia exacta:
+        # Filtrar versiones experimentales no probadas (> 25, como Java 27) que rompen ModLauncher
+        candidatos_seguros = [j for j in jdks if j["major"] <= 25] or jdks
 
-        # Fallback al JDK más alto disponible
-        return jdks[0]
+        # Seleccionar el JDK más cercano en versión al requerido
+        candidatos_seguros.sort(key=lambda x: abs(x["major"] - mayor_requerido))
+        return candidatos_seguros[0]
 
     def construir_entorno_para_jdk(self, info_jdk: Dict) -> dict:
         """Genera un diccionario de variables de entorno con JAVA_HOME y PATH adaptados al JDK."""

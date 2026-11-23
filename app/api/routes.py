@@ -52,6 +52,7 @@ class DownloadVersionRequest(BaseModel):
     """Esquema de solicitud para descargar e instalar una versión de Minecraft."""
     server_type: str = Field(default="vanilla", description="vanilla, fabric, forge o neoforge")
     version: str = Field(..., description="Identificador de versión de Minecraft, ej. 26.2, 1.21.4")
+    build: Optional[str] = Field(default=None, description="Compilación específica opcional (ej: 21.1.218)")
 
 
 class ModToggleRequest(BaseModel):
@@ -452,6 +453,14 @@ def configurar_rutas(
         versiones = await installer.obtener_versiones(tipo_servidor=server_type, incluir_snapshots=include_snapshots)
         return {"server_type": server_type, "versions": versiones}
 
+    @enrutador_app.get("/installer/neoforge-builds")
+    async def obtener_compilaciones_neoforge(
+        mc_version: str = Query(..., description="Versión de Minecraft, ej: 1.21.1")
+    ):
+        """Devuelve todas las compilaciones oficiales publicadas de NeoForge para una versión de Minecraft."""
+        builds = await installer.obtener_compilaciones_neoforge(mc_version)
+        return {"mc_version": mc_version, "builds": builds}
+
     @enrutador_app.get("/installer/installed-jars")
     async def obtener_jars_instalados():
         """Devuelve los ejecutables instalados en el servidor."""
@@ -462,12 +471,17 @@ def configurar_rutas(
     async def descargar_version(solicitud: DownloadVersionRequest):
         """Descarga e instala la versión solicitada."""
         try:
-            archivo_objetivo = await installer.descargar_servidor(solicitud.server_type, solicitud.version)
+            archivo_objetivo = await installer.descargar_servidor(
+                solicitud.server_type,
+                solicitud.version,
+                build=solicitud.build
+            )
             config_mgr.asegurar_eula_aceptado()
             motor = solicitud.server_type.lower()
+            version_guardada = f"{solicitud.version} ({solicitud.build})" if solicitud.build else solicitud.version
             settings_mgr.actualizar({
                 "target_jar": archivo_objetivo.name,
-                "installed_version": solicitud.version,
+                "installed_version": version_guardada,
                 "installed_engine": motor,
             })
             info_software = detectar_informacion_software(
@@ -477,9 +491,9 @@ def configurar_rutas(
             )
             return {
                 "status": "success",
-                "message": f"{info_software['name']} ({solicitud.version}) listo para iniciar",
+                "message": f"{info_software['name']} ({version_guardada}) listo para iniciar",
                 "target_jar": archivo_objetivo.name,
-                "installed_version": solicitud.version,
+                "installed_version": version_guardada,
                 "installed_engine": motor,
                 "software_info": info_software,
             }
