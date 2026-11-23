@@ -17,6 +17,7 @@ from app.core.installer import ServerInstaller
 from app.core.process import MinecraftProcess
 from app.core.settings import SettingsManager
 from app.core.tunnel import PlayitTunnelManager
+from app.version import __version__
 
 DIRECTORIO_BASE = Path(__file__).resolve().parent.parent
 DIRECTORIO_SERVIDOR = DIRECTORIO_BASE / "servidor_minecraft"
@@ -29,7 +30,7 @@ SERVER_DIR = DIRECTORIO_SERVIDOR
 STATIC_DIR = DIRECTORIO_ESTATICO
 FRONTEND_DIST = DIST_FRONTEND
 
-app = FastAPI(title="Foxden - Gestor Autónomo de Servidor Minecraft", version="1.0.0")
+app = FastAPI(title="Foxden - Gestor Autónomo de Servidor Minecraft", version=__version__)
 
 app.add_middleware(
     CORSMiddleware,
@@ -49,6 +50,7 @@ notificador_discord = DiscordNotifier(
     webhook_url=administrador_ajustes.obtener("discord_webhook_url"),
     show_ip=administrador_ajustes.obtener("discord_show_ip", True),
     enabled=administrador_ajustes.obtener("discord_enabled", True),
+    avatar_url=administrador_ajustes.obtener("discord_avatar_url"),
 )
 
 # Alias para compatibilidad

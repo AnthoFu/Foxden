@@ -140,7 +140,7 @@ export const App: React.FC = () => {
 
       {/* Pie de Página */}
       <footer className="border-t border-dark-800 py-3 text-center text-xs text-slate-500 select-none">
-        Foxden 🦊 • Creado con ❤️ por <a href="https://github.com/AnthoFu" target="_blank" rel="noreferrer" className="text-fox-400 hover:underline">AnthoFu</a>
+        Foxden v{status?.app_version || '1.0.0'} • Creado con ❤️ por <a href="https://github.com/AnthoFu" target="_blank" rel="noreferrer" className="text-fox-400 hover:underline">AnthoFu</a>
       </footer>
     </div>
   );

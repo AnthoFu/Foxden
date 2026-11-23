@@ -1,95 +1,180 @@
+<div align="center">
+  <img src="./app/static/logo.png" alt="Logo de Foxden" width="150" height="150"/>
+</div>
+
+---
+
 # Foxden 🦊
 
-> **Tu servidor de Minecraft listo en minutos.**  
-> Un panel web simple y moderno para crear, configurar y jugar en tu propio servidor de Minecraft con amigos desde **GitHub Codespaces** (en la nube) o desde tu computadora. ¡Sin pagar hosting y sin configuraciones complicadas!
+- **Autor**: [AnthoFu 🦊](https://github.com/AnthoFu)
+- **Última actualización del README**: `22/11/2026`
+
+Este repositorio contiene todo el código y las funciones de **Foxden**. Es un panel de control web moderno, ligero y autónomo para crear, administrar y jugar en servidores de Minecraft (**Vanilla, Paper, Purpur, Fabric y Forge**) sin necesidad de pagar hosting ni lidiar con configuraciones complejas de red.
 
 ---
 
-## ⚡ Inicio Rápido (En 3 Pasos)
+## ✨ Características
 
-### 1. Abre el panel en GitHub Codespaces
-1. Haz clic arriba en el botón verde **Code** > pestaña **Codespaces** > **Create codespace on main**.
-2. Espera unos momentos a que cargue y, en la terminal que aparece abajo, escribe:
-   ```bash
-   python run.py
-   ```
-3. Se abrirá automáticamente la ventana del panel de control en tu navegador (o haz clic en **Open in Browser** en el aviso que aparece).
+Foxden está diseñado para gestionar servidores de Minecraft de forma autónoma tanto en local como en la nube (GitHub Codespaces o VPS):
 
-### 2. Elige tu versión de Minecraft
-1. Ve a la pestaña **📦 Versiones e Instalador**.
-2. Elige el tipo de juego que prefieras:
-   - **Vanilla:** El Minecraft oficial clásico de toda la vida.
-   - **NeoForge:** La opción moderna recomendada para jugar con mods (1.20.1 en adelante).
-   - **Forge:** Para paquetes de mods y versiones tradicionales.
-   - **Fabric:** Ideal para optimización (Sodium, Iris) y mods ligeros.
-3. Elige la versión (por ejemplo `1.21.4` o `1.20.1`) y haz clic en **Descargar e Instalar**.
-
-### 3. ¡Inicia y juega!
-1. Haz clic en el botón verde **▶ Iniciar** arriba a la derecha.
-2. En unos segundos tu servidor estará listo para recibir jugadores.
+- **🎮 Soporte Multi-Motor:** Descarga e instalación autónoma de Vanilla, Paper, Purpur, Fabric y Forge con catálogo de versiones actualizado en un clic.
+- **☕ Detección Inteligente de Java (JDK):** Identifica las versiones de Java instaladas en el sistema y selecciona automáticamente la versión adecuada (JDK 8, 17 o 21) según la versión de Minecraft elegida.
+- **🌐 Conexión Pública sin Abrir Puertos:** Integración nativa con **Playit.gg** para generar túneles TCP seguros y jugar con amigos desde cualquier lugar sin tocar el router.
+- **📊 Monitoreo y Consola Interactiva:** Métricas en vivo (CPU, memoria RAM, tiempo de actividad) y terminal interactiva bidireccional vía **WebSockets**.
+- **🔔 Notificaciones en Discord:** Webhooks automáticos con mensajes enriquecidos (embeds) al iniciar, apagar o ante caídas inesperadas del servidor.
+- **🎨 Panel Web Reactivo:** Interfaz moderna construida en **React**, **TypeScript** y **Tailwind CSS**, con fallback estático incluido.
 
 ---
 
-## 👥 ¿Cómo se conectan mis amigos?
+## 📊 Diagrama de Arquitectura y Flujo
 
-Para que cualquier persona pueda entrar a tu partida desde cualquier lugar sin tener que abrir puertos en tu router:
+Este diagrama muestra cómo interactúa el panel web con el backend FastAPI, los procesos del servidor Minecraft y los servicios externos:
 
-1. Ve a la pestaña **🌐 Conexión Pública (Playit.gg)** y haz clic en **Iniciar Túnel**.
-2. **La primera vez:** Haz clic en el botón amarillo para abrir tu cuenta gratuita en [playit.gg](https://playit.gg) y vincular tu servidor en unos segundos.
-3. Copia la dirección que te asignen (por ejemplo: `mi-servidor.gl.joinmc.link`).
-4. ¡Pásale esa dirección a tus amigos para que entren desde **Minecraft > Multijugador > Conexión Directa**!
+```mermaid
+graph TD
+    subgraph Frontend ["🖥️ Interfaz Web"]
+        UI["Panel React / Estático"]
+        WSClient["Cliente WebSocket (Consola)"]
+    end
 
----
+    subgraph Backend ["⚡ Núcleo FastAPI (Foxden)"]
+        API["Rutas REST (/api)"]
+        WSServer["Servidor WebSocket (/ws/console)"]
+        ProcMgr["MinecraftProcess"]
+        JDKMgr["JdkManager (Java 8 / 17 / 21)"]
+        InstMgr["ServerInstaller"]
+        TuneMgr["PlayitTunnelManager"]
+        DiscNotifier["DiscordNotifier"]
+    end
 
-## 🎮 Ajustes Populares (Pestaña Configuración)
+    subgraph Runtime ["🎮 Ejecución & Conectividad"]
+        MCServer["Proceso Minecraft (server.jar)"]
+        Playit["Túnel Playit.gg (playit-cli)"]
+        Discord["API de Discord (Webhooks)"]
+    end
 
-- **Permitir cuentas no oficiales (No-Premium):** En la pestaña **⚙️ Configuración**, cambia **Tipo de Cuentas** a *Permitir No-Premium y Premium* y haz clic en **Guardar Configuración**.
-- **Semilla del mundo (World Seed):** Si quieres generar un mapa específico con una semilla que te guste, escríbela en el campo **Semilla del Mundo** antes de iniciar el servidor por primera vez.
-- **Darte permisos de Administrador (OP):** En la pestaña **🖥️ Consola en Vivo**, escribe:
-  ```text
-  op tu_nombre_en_minecraft
-  ```
-  y presiona **Enviar**.
-
----
-
-## 🧩 ¿Cómo agregar Mods?
-
-Si elegiste **NeoForge**, **Fabric** o **Forge**:
-1. Abre la carpeta `servidor_minecraft/mods/` en el explorador de archivos de la izquierda.
-2. Arrastra y suelta allí tus archivos de mods (archivos con extensión `.jar`).
-3. Asegúrate de que los mods coincidan con la versión de Minecraft que instalaste.
-4. Inicia o reinicia el servidor. ¡Listo!
-
----
-
-## 🔔 Notificaciones en Discord (Opcional)
-
-Si tienes un canal de Discord con tus amigos:
-1. En Discord, ve a los ajustes de tu canal > **Integraciones** > **Webhooks** y crea uno nuevo.
-2. Copia la URL del webhook y pégala en la pestaña **⚙️ Configuración** de Foxden.
-3. Foxden avisará automáticamente en tu canal cuando el servidor esté encendido con la dirección para entrar, y avisará cuando se apague.
-4. Puedes pausar o reactivar las alertas en cualquier momento con el interruptor sin tener que borrar tu URL.
-
----
-
-## ❓ Preguntas Frecuentes
-
-<details>
-<summary><strong>¿Tengo que instalar Java en mi computadora?</strong></summary>
-Si usas <strong>GitHub Codespaces</strong>, no tienes que instalar nada; todo viene listo y Foxden detecta y utiliza la versión de Java adecuada según la versión de Minecraft que elijas.
-</details>
-
-<details>
-<summary><strong>¿Dónde se guarda mi mundo y mis construcciones?</strong></summary>
-Todo tu progreso y partidas se guardan dentro de la carpeta <code>servidor_minecraft/world/</code>. Si quieres hacer una copia de seguridad, solo descarga esa carpeta.
-</details>
-
-<details>
-<summary><strong>¿Cómo apago el servidor correctamente?</strong></summary>
-Haz clic en el botón rojo <strong>■ Detener</strong> en el panel. Foxden guardará todo el mapa antes de cerrar el juego para que nunca pierdas nada.
-</details>
+    UI -->|Peticiones HTTP| API
+    WSClient <-->|Logs y Comandos Bidireccionales| WSServer
+    API --> ProcMgr
+    API --> InstMgr
+    API --> TuneMgr
+    WSServer <--> ProcMgr
+    ProcMgr -->|Selecciona JDK| JDKMgr
+    ProcMgr -->|Lanza y Supervisa| MCServer
+    TuneMgr -->|Gestiona Conexión Pública| Playit
+    ProcMgr -->|Eventos de Estado| DiscNotifier
+    DiscNotifier -->|Envía Embeds| Discord
+```
 
 ---
 
-Hecho con ❤️ por **[AnthoFu](https://github.com/AnthoFu)**.
+## 📂 Estructura del Repositorio
+
+El proyecto está organizado de forma modular separando el backend en Python del frontend en React:
+
+```
+.
+├── 📄 run.py                   # Script de lanzamiento y orquestación del servidor
+├── 📄 requirements.txt         # Dependencias de Python (FastAPI, Uvicorn, httpx, etc.)
+├── 📄 foxden_settings.json     # Archivo de configuración persistente (RAM, JDK, Webhooks)
+├── 📁 app/                     # Backend FastAPI
+│   ├── 📄 main.py              # Punto de entrada de la aplicación web y rutas estáticas
+│   ├── 📄 version.py           # Fuente única de la verdad de la versión (1.0.0)
+│   ├── 📁 api/                 # Controladores de rutas REST y WebSockets
+│   │   ├── 📄 routes.py        # Endpoints de estado, configuración e instalador
+│   │   └── 📄 websocket.py     # Transmisión en vivo de consola y comandos
+│   ├── 📁 core/                # Módulos del núcleo del sistema
+│   │   ├── 📄 config.py        # Gestor de server.properties de Minecraft
+│   │   ├── 📄 discord.py       # Notificaciones y embeds de Discord Webhook
+│   │   ├── 📄 installer.py     # Descargador e instalador de motores de Minecraft
+│   │   ├── 📄 jdk.py           # Detección y emparejamiento de versiones de Java
+│   │   ├── 📄 process.py       # Control de procesos y métricas del servidor
+│   │   ├── 📄 settings.py      # Persistencia de ajustes del panel
+│   │   └── 📄 tunnel.py        # Integración con el túnel Playit.gg
+│   └── 📁 static/              # Interfaz de respaldo estática, logos y estilos
+├── 📁 frontend/                # Frontend moderno SPA (React + TypeScript + Vite)
+│   ├── 📁 src/                 # Componentes, pestañas, hooks y servicios
+│   ├── 📁 public/              # Logos y favicons
+│   ├── 📁 dist/                # Bundle compilado de producción servido por FastAPI
+│   ├── 📄 package.json         # Dependencias y scripts de Node.js
+│   └── 📄 vite.config.ts       # Configuración de Vite
+└── 📁 servidor_minecraft/      # Espacio aislado de ejecución del servidor Minecraft
+    ├── 📁 mods/                # Carpeta para colocar mods (.jar) de Forge/Fabric
+    └── 📄 server.properties    # Configuración del servidor de Minecraft
+```
+
+---
+
+## 🚀 Cómo Empezar
+
+### 1. Requisitos
+
+- [Python](https://www.python.org/) (v3.10 o superior)
+- [Java / JDK](https://adoptium.net/) (JDK 8, 17 o 21 según la versión de Minecraft a jugar)
+- [Node.js](https://nodejs.org/) (v18 o superior — *opcional, solo requerido para desarrollo del frontend*)
+
+### 2. Instalación
+
+Clona el repositorio e instala las dependencias en un entorno virtual aislado:
+
+```bash
+git clone https://github.com/AnthoFu/foxden.git
+cd foxden
+
+# Crear y activar entorno virtual
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Instalar dependencias
+pip install -r requirements.txt
+```
+
+### 3. Ejecución
+
+Para iniciar el servidor FastAPI y el panel web:
+
+```bash
+python run.py
+```
+
+Foxden se iniciará automáticamente en:  
+👉 **http://localhost:8000** (o la URL asignada automáticamente en GitHub Codespaces).
+
+---
+
+## 🌐 Conexión Pública (Jugar con Amigos)
+
+Para que cualquier persona pueda conectarse desde cualquier lugar sin abrir puertos en el router:
+
+1. Ve a la pestaña **Conexión Pública (Playit)** en el panel.
+2. Haz clic en **Iniciar Túnel**.
+3. Vincula tu cuenta gratuita de [playit.gg](https://playit.gg) la primera vez y copia la dirección asignada (ejemplo: `tu-servidor.craft.playit.gg`).
+4. ¡Pásale esa dirección a tus amigos para que se conecten desde **Minecraft > Multijugador > Conexión Directa**!
+
+---
+
+## 🔔 Notificaciones en Discord
+
+Para recibir avisos automáticos en tu canal de Discord cuando el servidor encienda o se detenga:
+
+1. En Discord, ve a **Ajustes del Canal** ➔ **Integraciones** ➔ **Webhooks** y crea uno nuevo.
+2. Copia la URL del webhook y pégala en la pestaña **Configuración** de Foxden.
+3. Haz clic en **Probar Webhook** para validar la conexión.
+
+---
+
+## 🛠️ Desarrollo del Frontend (Opcional)
+
+Si deseas realizar modificaciones en la interfaz de React:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Para recompilar el bundle final de producción listo para FastAPI:
+
+```bash
+npm run build
+```

@@ -8,7 +8,10 @@ from datetime import datetime, timezone
 from typing import List, Optional
 import httpx
 
-URL_AVATAR_ZORRO = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f98a.png"
+# URL oficial del logo de Foxden en GitHub (se usará cuando el repositorio sea público y esté pusheado)
+URL_AVATAR_ZORRO = "https://raw.githubusercontent.com/AnthoFu/foxden/main/app/static/logo.png"
+# Fallback seguro (Twemoji) por si la URL principal no responde o devuelve 404
+URL_AVATAR_FALLBACK = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f98a.png"
 ICONO_PUNTO_VERDE = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f7e2.png"
 ICONO_PUNTO_ROJO = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f534.png"
 ICONO_PUNTO_GRIS = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/26aa.png"
@@ -30,10 +33,13 @@ class DiscordNotifier:
         webhook_url: Optional[str] = None,
         show_ip: bool = True,
         enabled: bool = True,
+        avatar_url: Optional[str] = None,
     ) -> None:
         self.webhook_url = webhook_url.strip() if webhook_url else None
         self.show_ip = bool(show_ip)
         self.enabled = bool(enabled)
+        self.avatar_url = avatar_url.strip() if avatar_url else URL_AVATAR_ZORRO
+        self._avatar_resuelto: Optional[str] = None
 
     def esta_configurado(self) -> bool:
         """Comprueba si el webhook de Discord está activo y configurado con una URL válida."""
@@ -43,6 +49,30 @@ class DiscordNotifier:
             self.webhook_url.startswith("https://discord.com/api/webhooks/")
             or self.webhook_url.startswith("https://discordapp.com/api/webhooks/")
         )
+
+    async def _obtener_avatar_seguro(self, cliente: httpx.AsyncClient) -> str:
+        """
+        Determina la URL óptima para el avatar y los iconos de Discord.
+        Si la URL principal del logo responde con HTTP 200, la usa y la almacena en caché.
+        Si devuelve 404 (ej. repo privado o pendiente de push), utiliza el fallback seguro
+        para evitar que Discord muestre imágenes rotas o mandos azules genéricos.
+        """
+        if self._avatar_resuelto is not None:
+            return self._avatar_resuelto
+
+        candidata = self.avatar_url or URL_AVATAR_ZORRO
+        if not candidata:
+            return URL_AVATAR_FALLBACK
+
+        try:
+            res = await cliente.head(candidata, timeout=2.0)
+            if res.status_code == 200:
+                self._avatar_resuelto = candidata
+                return self._avatar_resuelto
+        except Exception:
+            pass
+
+        return URL_AVATAR_FALLBACK
 
     async def enviar_embed(
         self,
@@ -58,33 +88,36 @@ class DiscordNotifier:
         if not url:
             return False
 
-        embed = {
-            "author": {
-                "name": "Foxden • Minecraft Server Manager",
-                "icon_url": URL_AVATAR_ZORRO,
-            },
-            "title": titulo,
-            "description": descripcion,
-            "color": color,
-            "fields": campos or [],
-            "footer": {
-                "text": "Foxden 🦊 • Servidor de Minecraft",
-                "icon_url": URL_AVATAR_ZORRO,
-            },
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-
-        if url_miniatura:
-            embed["thumbnail"] = {"url": url_miniatura}
-
-        carga = {
-            "username": "Foxden 🦊",
-            "avatar_url": URL_AVATAR_ZORRO,
-            "embeds": [embed],
-        }
-
         try:
             async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as cliente:
+                avatar = await self._obtener_avatar_seguro(cliente)
+
+                embed_author: dict = {"name": "Foxden • Minecraft Server Manager"}
+                embed_footer: dict = {"text": "Foxden • Servidor de Minecraft"}
+                if avatar:
+                    embed_author["icon_url"] = avatar
+                    embed_footer["icon_url"] = avatar
+
+                embed = {
+                    "author": embed_author,
+                    "title": titulo,
+                    "description": descripcion,
+                    "color": color,
+                    "fields": campos or [],
+                    "footer": embed_footer,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+
+                if url_miniatura:
+                    embed["thumbnail"] = {"url": url_miniatura}
+
+                carga = {
+                    "username": "Foxden",
+                    "embeds": [embed],
+                }
+                if avatar:
+                    carga["avatar_url"] = avatar
+
                 res = await cliente.post(url, json=carga)
                 return res.status_code in (200, 204)
         except Exception:

@@ -31,6 +31,7 @@ export interface ServerStatus {
   tunnel: TunnelStatus;
   discord_enabled: boolean;
   discord_configured: boolean;
+  app_version?: string;
 }
 
 export interface JdkInfo {

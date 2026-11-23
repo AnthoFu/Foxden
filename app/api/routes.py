@@ -16,6 +16,7 @@ from app.core.jdk import JdkManager
 from app.core.process import MinecraftProcess
 from app.core.settings import SettingsManager
 from app.core.tunnel import PlayitTunnelManager
+from app.version import __version__
 
 router = APIRouter(prefix="/api")
 
@@ -206,7 +207,13 @@ def configurar_rutas(
         metricas["tunnel"] = tunnel_mgr.obtener_estado()
         metricas["discord_enabled"] = discord_notifier.enabled
         metricas["discord_configured"] = discord_notifier.esta_configurado()
+        metricas["app_version"] = __version__
         return metricas
+
+    @enrutador_app.get("/version")
+    async def obtener_version():
+        """Devuelve la versión actual de la aplicación Foxden."""
+        return {"version": __version__, "app": "Foxden"}
 
     @enrutador_app.get("/jdks")
     async def obtener_jdks():

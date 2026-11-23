@@ -67,14 +67,17 @@ export const Header: React.FC<PropiedadesEncabezado> = ({
     <header className="bg-dark-800 border-b border-dark-700 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
       {/* Logotipo y Título */}
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-fox-500/10 border border-fox-500/20 flex items-center justify-center text-2xl shadow-inner">
-          🦊
+        <div className="w-10 h-10 rounded-xl bg-fox-500/10 border border-fox-500/20 flex items-center justify-center p-1.5 shadow-inner">
+          <img src="/logo.png" alt="Foxden Logo" className="w-full h-full object-contain drop-shadow" />
         </div>
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight text-white">Foxden</h1>
             <span className="text-[10px] font-semibold uppercase tracking-wider bg-fox-500/20 text-fox-400 border border-fox-500/30 px-1.5 py-0.5 rounded">
               Manager
+            </span>
+            <span className="text-[10px] font-mono font-medium text-slate-400 bg-dark-750 border border-dark-700 px-1.5 py-0.5 rounded">
+              v{status?.app_version || '1.0.0'}
             </span>
           </div>
           <p className="text-xs text-slate-400">Panel Autónomo de Minecraft</p>
