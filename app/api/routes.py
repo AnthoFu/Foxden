@@ -13,6 +13,7 @@ from app.core.config import ConfigManager
 from app.core.discord import DiscordNotifier
 from app.core.installer import ServerInstaller
 from app.core.jdk import JdkManager
+from app.core.modrinth import ModrinthClient
 from app.core.mods import ModManager
 from app.core.process import MinecraftProcess
 from app.core.settings import SettingsManager
@@ -57,6 +58,15 @@ class ModToggleRequest(BaseModel):
     """Esquema de solicitud para activar o desactivar un mod."""
     filename: str = Field(..., description="Nombre del archivo mod, ej. jei-1.20.1.jar")
     enabled: bool = Field(..., description="True para activar, False para desactivar")
+
+
+class ModrinthInstallRequest(BaseModel):
+    """Esquema de solicitud para descargar e instalar un mod desde Modrinth."""
+    project_id: str = Field(..., description="ID o slug del proyecto en Modrinth")
+    version_id: Optional[str] = Field(default=None, description="ID específico de la versión a instalar")
+    loader: Optional[str] = Field(default=None, description="Cargador (fabric, forge, neoforge)")
+    game_version: Optional[str] = Field(default=None, description="Versión de Minecraft")
+    install_dependencies: bool = Field(default=True, description="Instalar automáticamente dependencias requeridas")
 
 
 def detectar_informacion_software(
@@ -192,6 +202,7 @@ def configurar_rutas(
     settings_mgr: SettingsManager,
     discord_notifier: DiscordNotifier,
     mod_mgr: Optional[ModManager] = None,
+    modrinth_client: Optional[ModrinthClient] = None,
 ) -> None:
     """Registra y enlaza todos los controladores de rutas REST de la aplicación."""
     gestor_jdk = JdkManager()
@@ -533,6 +544,75 @@ def configurar_rutas(
             return {"status": "success", "message": f"Mod {filename} eliminado correctamente."}
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
+
+    @enrutador_app.get("/mods/modrinth/search")
+    async def buscar_mods_modrinth(
+        query: str = "",
+        loader: Optional[str] = None,
+        version: Optional[str] = None,
+        sort: str = "relevance",
+        offset: int = 0,
+        limit: int = 20,
+        server_only: bool = True,
+    ):
+        """Busca mods en Modrinth con filtros por cargador, versión de Minecraft y soporte de servidor."""
+        if not modrinth_client:
+            raise HTTPException(status_code=500, detail="Cliente de Modrinth no configurado.")
+        try:
+            return await modrinth_client.buscar_mods(
+                query=query,
+                loader=loader,
+                version=version,
+                solo_servidor=server_only,
+                sort=sort,
+                limit=limit,
+                offset=offset,
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error consultando Modrinth: {str(e)}")
+
+    @enrutador_app.get("/mods/modrinth/project/{project_id}/versions")
+    async def obtener_versiones_modrinth(
+        project_id: str,
+        loader: Optional[str] = None,
+        version: Optional[str] = None,
+    ):
+        """Obtiene las versiones disponibles de un mod en Modrinth."""
+        if not modrinth_client:
+            raise HTTPException(status_code=500, detail="Cliente de Modrinth no configurado.")
+        try:
+            return await modrinth_client.obtener_versiones(
+                project_id_o_slug=project_id,
+                loader=loader,
+                version=version,
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error obteniendo versiones de Modrinth: {str(e)}")
+
+    @enrutador_app.post("/mods/modrinth/install")
+    async def instalar_mod_modrinth(solicitud: ModrinthInstallRequest):
+        """Descarga e instala un mod desde Modrinth con sus dependencias requeridas."""
+        if not modrinth_client:
+            raise HTTPException(status_code=500, detail="Cliente de Modrinth no configurado.")
+
+        motor = solicitud.loader or settings_mgr.obtener("installed_engine", "")
+        ver = solicitud.game_version or settings_mgr.obtener("installed_version", "")
+        try:
+            resultado = await modrinth_client.instalar_mod(
+                project_id_o_slug=solicitud.project_id,
+                version_id=solicitud.version_id,
+                loader=motor,
+                game_version=ver,
+                instalar_dependencias=solicitud.install_dependencies,
+            )
+            mods_actualizados = mod_mgr.listar_mods() if mod_mgr else []
+            return {
+                "status": "success",
+                "result": resultado,
+                "mods": mods_actualizados,
+            }
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"No se pudo instalar desde Modrinth: {str(e)}")
 
 
 # Alias en inglés para compatibilidad

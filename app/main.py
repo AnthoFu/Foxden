@@ -14,6 +14,7 @@ from app.api.websocket import router as ws_router, configurar_websocket_consola
 from app.core.config import ConfigManager
 from app.core.discord import DiscordNotifier
 from app.core.installer import ServerInstaller
+from app.core.modrinth import ModrinthClient
 from app.core.mods import ModManager
 from app.core.process import MinecraftProcess
 from app.core.settings import SettingsManager
@@ -46,6 +47,7 @@ administrador_proceso = MinecraftProcess(server_dir=DIRECTORIO_SERVIDOR)
 administrador_configuracion = ConfigManager(server_dir=DIRECTORIO_SERVIDOR)
 instalador = ServerInstaller(server_dir=DIRECTORIO_SERVIDOR)
 administrador_mods = ModManager(server_dir=DIRECTORIO_SERVIDOR)
+cliente_modrinth = ModrinthClient(server_dir=DIRECTORIO_SERVIDOR)
 administrador_tunel = PlayitTunnelManager(base_dir=DIRECTORIO_BASE)
 administrador_ajustes = SettingsManager(base_dir=DIRECTORIO_BASE)
 notificador_discord = DiscordNotifier(
@@ -140,6 +142,7 @@ configurar_rutas(
     settings_mgr=administrador_ajustes,
     discord_notifier=notificador_discord,
     mod_mgr=administrador_mods,
+    modrinth_client=cliente_modrinth,
 )
 configurar_websocket_consola(ws_router, administrador_proceso)
 

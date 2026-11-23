@@ -87,3 +87,40 @@ export interface ModsResponse {
   enabled_count: number;
   disabled_count: number;
 }
+
+export interface ModrinthHit {
+  project_id: string;
+  slug: string;
+  author: string;
+  title: string;
+  description: string;
+  categories: string[];
+  display_categories: string[];
+  versions: string[];
+  downloads: number;
+  follows: number;
+  icon_url: string | null;
+  date_modified: string;
+  latest_version: string;
+  client_side: string;
+  server_side: string;
+}
+
+export interface ModrinthSearchResponse {
+  hits: ModrinthHit[];
+  offset: number;
+  limit: number;
+  total_hits: number;
+}
+
+export interface ModrinthInstallResult {
+  status: string;
+  result: {
+    status: string;
+    installed_file: string;
+    installed_files: string[];
+    dependencies_installed: string[];
+    version_number: string;
+  };
+  mods: ModItem[];
+}

@@ -2,7 +2,15 @@
  * Cliente HTTP tipado para interactuar con la API REST de Foxden.
  */
 
-import { JdkInfo, ModItem, ModsResponse, ServerFullConfig, ServerStatus } from '../types';
+import {
+  JdkInfo,
+  ModItem,
+  ModrinthInstallResult,
+  ModrinthSearchResponse,
+  ModsResponse,
+  ServerFullConfig,
+  ServerStatus,
+} from '../types';
 
 /**
  * Procesa la respuesta de la API y lanza un error descriptivo si el estado HTTP no es exitoso.
@@ -196,6 +204,77 @@ export const api = {
       method: 'DELETE',
     });
     return manejarRespuesta<{ status: string; message: string }>(res);
+  },
+
+  /**
+   * Busca mods en Modrinth con filtros de motor y versión.
+   */
+  async buscarModrinth(
+    consulta: string = '',
+    loader?: string,
+    version?: string,
+    sort: string = 'relevance',
+    offset: number = 0,
+    limit: number = 20,
+    soloServidor: boolean = true
+  ): Promise<ModrinthSearchResponse> {
+    const params = new URLSearchParams();
+    if (consulta) params.append('query', consulta);
+    if (loader) params.append('loader', loader);
+    if (version) params.append('version', version);
+    if (sort) params.append('sort', sort);
+    params.append('offset', offset.toString());
+    params.append('limit', limit.toString());
+    params.append('server_only', soloServidor ? 'true' : 'false');
+
+    const res = await fetch(`/api/mods/modrinth/search?${params.toString()}`);
+    return manejarRespuesta<ModrinthSearchResponse>(res);
+  },
+
+  /**
+   * Descarga e instala un mod desde Modrinth con dependencias opcionales.
+   */
+  async instalarModModrinth(
+    projectId: string,
+    loader?: string,
+    gameVersion?: string,
+    versionId?: string,
+    installDependencies: boolean = true
+  ): Promise<ModrinthInstallResult> {
+    const res = await fetch('/api/mods/modrinth/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project_id: projectId,
+        loader,
+        game_version: gameVersion,
+        version_id: versionId,
+        install_dependencies: installDependencies,
+      }),
+    });
+    return manejarRespuesta<ModrinthInstallResult>(res);
+  },
+
+  // Alias en inglés para compatibilidad
+  searchModrinth(
+    query?: string,
+    loader?: string,
+    version?: string,
+    sort?: string,
+    offset?: number,
+    limit?: number,
+    serverOnly?: boolean
+  ) {
+    return this.buscarModrinth(query, loader, version, sort, offset, limit, serverOnly);
+  },
+  installModrinth(
+    projectId: string,
+    loader?: string,
+    gameVersion?: string,
+    versionId?: string,
+    installDependencies?: boolean
+  ) {
+    return this.instalarModModrinth(projectId, loader, gameVersion, versionId, installDependencies);
   },
 
   // Alias en inglés para compatibilidad
