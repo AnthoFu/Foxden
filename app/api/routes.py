@@ -6,9 +6,10 @@ túnel público de Playit y alertas de Discord.
 
 from pathlib import Path
 from typing import Dict, List, Optional
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 
+from app.core.auth import AuthManager
 from app.core.config import ConfigManager
 from app.core.discord import DiscordNotifier
 from app.core.installer import ServerInstaller
@@ -46,6 +47,18 @@ class DiscordTestRequest(BaseModel):
     """Esquema de solicitud para probar el envío de webhook a Discord."""
     webhook_url: Optional[str] = Field(default=None)
     show_ip: Optional[bool] = Field(default=None)
+
+
+class AuthSetupRequest(BaseModel):
+    """Esquema para registrar el administrador en el primer arranque."""
+    username: str = Field(..., min_length=3, max_length=50, description="Nombre de usuario del administrador")
+    password: str = Field(..., min_length=4, max_length=128, description="Contraseña del administrador")
+
+
+class AuthLoginRequest(BaseModel):
+    """Esquema para iniciar sesión."""
+    username: str = Field(..., description="Nombre de usuario")
+    password: str = Field(..., description="Contraseña")
 
 
 class DownloadVersionRequest(BaseModel):
@@ -204,9 +217,83 @@ def configurar_rutas(
     discord_notifier: DiscordNotifier,
     mod_mgr: Optional[ModManager] = None,
     modrinth_client: Optional[ModrinthClient] = None,
+    auth_mgr: Optional[AuthManager] = None,
 ) -> None:
     """Registra y enlaza todos los controladores de rutas REST de la aplicación."""
     gestor_jdk = JdkManager()
+
+    @enrutador_app.get("/auth/status")
+    async def obtener_estado_auth(request: Request):
+        """Devuelve si se requiere configuración inicial de admin o si la sesión actual es válida."""
+        if not auth_mgr:
+            return {"setup_required": False, "authenticated": True, "username": "admin"}
+
+        if not auth_mgr.esta_configurado():
+            return {"setup_required": True, "authenticated": False, "username": None}
+
+        auth_header = request.headers.get("Authorization", "")
+        token = None
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+        elif request.query_params.get("token"):
+            token = request.query_params.get("token")
+
+        autenticado = auth_mgr.validar_token(token)
+        usuario = auth_mgr.obtener_usuario_de_token(token) if autenticado else None
+        return {
+            "setup_required": False,
+            "authenticated": autenticado,
+            "username": usuario,
+        }
+
+    @enrutador_app.post("/auth/setup")
+    async def configurar_primer_admin(solicitud: AuthSetupRequest):
+        """Registra el administrador por primera vez y devuelve el token de sesión."""
+        if not auth_mgr:
+            raise HTTPException(status_code=400, detail="Módulo de autenticación no configurado.")
+        try:
+            token = auth_mgr.configurar_admin(solicitud.username, solicitud.password)
+            return {
+                "status": "success",
+                "token": token,
+                "username": solicitud.username.strip(),
+            }
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except RuntimeError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+
+    @enrutador_app.post("/auth/login")
+    async def iniciar_sesion(solicitud: AuthLoginRequest):
+        """Autentica al administrador con usuario y contraseña y emite un token de sesión."""
+        if not auth_mgr:
+            return {"status": "success", "token": "dummy", "username": solicitud.username}
+        if not auth_mgr.esta_configurado():
+            raise HTTPException(status_code=400, detail="El administrador no ha sido configurado todavía.")
+
+        if not auth_mgr.verificar_credenciales(solicitud.username, solicitud.password):
+            raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos.")
+
+        token = auth_mgr.crear_token(solicitud.username.strip())
+        return {
+            "status": "success",
+            "token": token,
+            "username": solicitud.username.strip(),
+        }
+
+    @enrutador_app.post("/auth/logout")
+    async def cerrar_sesion(request: Request):
+        """Invalida el token de sesión activo."""
+        if auth_mgr:
+            auth_header = request.headers.get("Authorization", "")
+            token = None
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:].strip()
+            elif request.query_params.get("token"):
+                token = request.query_params.get("token")
+            if token:
+                auth_mgr.invalidar_token(token)
+        return {"status": "success"}
 
     @enrutador_app.get("/status")
     async def obtener_estado():

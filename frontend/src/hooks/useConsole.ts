@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { api } from '../services/api';
+import { api, obtenerToken } from '../services/api';
 
 export function useConsola() {
   const [logs, setLogs] = useState<string[]>([]);
@@ -23,7 +23,9 @@ export function useConsola() {
 
     const conectarWebSocket = () => {
       const protocolo = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const urlWs = `${protocolo}//${window.location.host}/ws/console`;
+      const token = obtenerToken();
+      const queryToken = token ? `?token=${encodeURIComponent(token)}` : '';
+      const urlWs = `${protocolo}//${window.location.host}/ws/console${queryToken}`;
 
       const ws = new WebSocket(urlWs);
       wsRef.current = ws;

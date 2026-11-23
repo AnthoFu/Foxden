@@ -4,13 +4,14 @@ Monta las rutas de la API, el manejador de WebSocket y sirve los activos estáti
 """
 
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router as api_router, configurar_rutas, detectar_informacion_software
 from app.api.websocket import router as ws_router, configurar_websocket_consola
+from app.core.auth import AuthManager
 from app.core.config import ConfigManager
 from app.core.discord import DiscordNotifier
 from app.core.installer import ServerInstaller
@@ -43,6 +44,7 @@ app.add_middleware(
 )
 
 # Instancias únicas del núcleo (Singletons)
+administrador_auth = AuthManager(base_dir=DIRECTORIO_BASE)
 administrador_proceso = MinecraftProcess(server_dir=DIRECTORIO_SERVIDOR)
 administrador_configuracion = ConfigManager(server_dir=DIRECTORIO_SERVIDOR)
 instalador = ServerInstaller(server_dir=DIRECTORIO_SERVIDOR)
@@ -58,6 +60,7 @@ notificador_discord = DiscordNotifier(
 )
 
 # Alias para compatibilidad
+auth_manager = administrador_auth
 process_manager = administrador_proceso
 config_manager = administrador_configuracion
 installer = instalador
@@ -132,6 +135,43 @@ handle_server_stopped = al_detenerse_servidor
 administrador_proceso.on_server_ready = al_estar_servidor_listo
 administrador_proceso.on_server_stopped = al_detenerse_servidor
 
+# Middleware de autenticación y seguridad para /api/*
+@app.middleware("http")
+async def verificar_autenticacion_middleware(request: Request, call_next):
+    """Protege endpoints /api/* verificando tokens de sesión activos."""
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
+    ruta = request.url.path
+    if ruta.startswith("/api"):
+        rutas_publicas = [
+            "/api/auth/status",
+            "/api/auth/setup",
+            "/api/auth/login",
+            "/api/version",
+        ]
+        if any(ruta == p or ruta.startswith(p + "/") for p in rutas_publicas):
+            return await call_next(request)
+
+        if administrador_auth.esta_configurado():
+            auth_header = request.headers.get("Authorization", "")
+            token = None
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:].strip()
+            elif request.query_params.get("token"):
+                token = request.query_params.get("token")
+
+            if not administrador_auth.validar_token(token):
+                return JSONResponse(status_code=401, content={"detail": "No autenticado. Inicie sesión."})
+        else:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Configuración inicial de administrador requerida."},
+            )
+
+    return await call_next(request)
+
+
 # Enlazar rutas y WebSocket
 configurar_rutas(
     api_router,
@@ -143,8 +183,9 @@ configurar_rutas(
     discord_notifier=notificador_discord,
     mod_mgr=administrador_mods,
     modrinth_client=cliente_modrinth,
+    auth_mgr=administrador_auth,
 )
-configurar_websocket_consola(ws_router, administrador_proceso)
+configurar_websocket_consola(ws_router, administrador_proceso, auth_mgr=administrador_auth)
 
 app.include_router(api_router)
 app.include_router(ws_router)

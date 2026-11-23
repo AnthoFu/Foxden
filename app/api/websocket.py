@@ -4,7 +4,7 @@ Transmite registros en tiempo real y recibe comandos desde la interfaz web.
 """
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import Set
+from typing import Any, Optional, Set
 from app.core.process import MinecraftProcess
 
 router = APIRouter()
@@ -45,7 +45,11 @@ admin_conexiones = AdministradorConexiones()
 ws_manager = admin_conexiones
 
 
-def configurar_websocket_consola(enrutador_app: APIRouter, proceso: MinecraftProcess) -> None:
+def configurar_websocket_consola(
+    enrutador_app: APIRouter,
+    proceso: MinecraftProcess,
+    auth_mgr: Optional[Any] = None,
+) -> None:
     """Configura la ruta /ws/console y suscribe la transmisión de logs en vivo."""
     import asyncio
 
@@ -62,6 +66,12 @@ def configurar_websocket_consola(enrutador_app: APIRouter, proceso: MinecraftPro
     @enrutador_app.websocket("/ws/console")
     async def websocket_consola(websocket: WebSocket) -> None:
         """Endpoint de WebSocket para la consola interactiva de Minecraft."""
+        token = websocket.query_params.get("token")
+        if auth_mgr and auth_mgr.esta_configurado():
+            if not auth_mgr.validar_token(token):
+                await websocket.close(code=1008, reason="No autorizado")
+                return
+
         await admin_conexiones.conectar(websocket)
         try:
             # Enviar historial inicial de logs acumulados

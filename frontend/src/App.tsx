@@ -1,22 +1,30 @@
 /**
  * Componente principal de la aplicación Foxden.
- * Controla la navegación por pestañas, modales de advertencia y consumo de estado del servidor.
+ * Controla la verificación de sesión, asistente de primer arranque (setup),
+ * navegación por pestañas, modales de advertencia y consumo de estado del servidor.
  */
 
-import React, { useState } from 'react';
-import { Terminal, Sliders, Package, Globe, Puzzle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Terminal, Sliders, Package, Globe, Puzzle, Loader2 } from 'lucide-react';
 import { Header } from './components/Header';
 import { AlertBanner } from './components/AlertBanner';
 import { TunnelWarningModal } from './components/TunnelWarningModal';
 import { TunnelWarningBanner } from './components/TunnelWarningBanner';
+import { AuthView } from './components/AuthView';
 import { ConsoleTab } from './components/tabs/ConsoleTab';
 import { ConfigTab } from './components/tabs/ConfigTab';
 import { VersionsTab } from './components/tabs/VersionsTab';
 import { ModsTab } from './components/tabs/ModsTab';
 import { TunnelTab } from './components/tabs/TunnelTab';
 import { useEstadoServidor } from './hooks/useServerStatus';
+import { api } from './services/api';
 
-export const App: React.FC = () => {
+interface DashboardProps {
+  currentUser: string | null;
+  onLogout: () => void;
+}
+
+const DashboardApp: React.FC<DashboardProps> = ({ currentUser, onLogout }) => {
   const [pestanaActiva, setPestanaActiva] = useState<'console' | 'config' | 'versions' | 'mods' | 'tunnel'>('console');
   const [mostrarModalTunel, setMostrarModalTunel] = useState<boolean>(false);
 
@@ -60,9 +68,11 @@ export const App: React.FC = () => {
         status={status}
         loading={loading}
         actionLoading={actionLoading}
+        currentUser={currentUser}
         onStart={manejarClicIniciar}
         onStop={detenerServidor}
         onRestart={reiniciarServidor}
+        onLogout={onLogout}
       />
 
       {/* Modal de Advertencia de Túnel */}
@@ -143,9 +153,111 @@ export const App: React.FC = () => {
 
       {/* Pie de Página */}
       <footer className="border-t border-dark-800 py-3 text-center text-xs text-slate-500 select-none">
-        Foxden v{status?.app_version || '1.0.0'} • Creado con ❤️ por <a href="https://github.com/AnthoFu" target="_blank" rel="noreferrer" className="text-fox-400 hover:underline">AnthoFu</a>
+        Foxden v{status?.app_version || '1.0.4'} • Creado con ❤️ por <a href="https://github.com/AnthoFu" target="_blank" rel="noreferrer" className="text-fox-400 hover:underline">AnthoFu</a>
       </footer>
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  const [authState, setAuthState] = useState<{
+    loading: boolean;
+    setupRequired: boolean;
+    authenticated: boolean;
+    username: string | null;
+  }>({
+    loading: true,
+    setupRequired: false,
+    authenticated: false,
+    username: null,
+  });
+
+  const verificarAutenticacion = async () => {
+    try {
+      const res = await api.obtenerEstadoAuth();
+      setAuthState({
+        loading: false,
+        setupRequired: res.setup_required,
+        authenticated: res.authenticated,
+        username: res.username,
+      });
+    } catch (err) {
+      console.error('Error verificando autenticación de Foxden:', err);
+      setAuthState({
+        loading: false,
+        setupRequired: false,
+        authenticated: false,
+        username: null,
+      });
+    }
+  };
+
+  useEffect(() => {
+    verificarAutenticacion();
+
+    const alRecibirNoAutorizado = () => {
+      setAuthState((prev) => ({
+        ...prev,
+        authenticated: false,
+        username: null,
+      }));
+    };
+
+    window.addEventListener('foxden:unauthorized', alRecibirNoAutorizado);
+    return () => window.removeEventListener('foxden:unauthorized', alRecibirNoAutorizado);
+  }, []);
+
+  const manejarExitoAuth = (username: string) => {
+    setAuthState({
+      loading: false,
+      setupRequired: false,
+      authenticated: true,
+      username,
+    });
+  };
+
+  const manejarCierreSesion = async () => {
+    try {
+      await api.cerrarSesion();
+    } catch {
+      // Ignorar error de red al cerrar sesión
+    }
+    setAuthState({
+      loading: false,
+      setupRequired: false,
+      authenticated: false,
+      username: null,
+    });
+  };
+
+  // Pantalla de carga mientras se verifica la sesión
+  if (authState.loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-dark-900 text-slate-100 select-none">
+        <div className="w-12 h-12 rounded-2xl bg-fox-500/10 border border-fox-500/20 p-2 flex items-center justify-center mb-4">
+          <Loader2 className="w-6 h-6 text-fox-400 animate-spin" />
+        </div>
+        <p className="text-xs text-slate-400 font-medium tracking-wide">Iniciando Foxden...</p>
+      </div>
+    );
+  }
+
+  // Si no está autenticado o se requiere configuración inicial
+  if (!authState.authenticated) {
+    return (
+      <AuthView
+        setupRequired={authState.setupRequired}
+        onAuthSuccess={manejarExitoAuth}
+      />
+    );
+  }
+
+  // Dashboard principal autenticado
+  return (
+    <DashboardApp
+      currentUser={authState.username}
+      onLogout={manejarCierreSesion}
+    />
   );
 };
 

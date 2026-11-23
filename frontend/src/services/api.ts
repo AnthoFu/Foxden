@@ -12,6 +12,64 @@ import {
   ServerStatus,
 } from '../types';
 
+const AUTH_TOKEN_KEY = 'foxden_auth_token';
+
+/**
+ * Obtiene el token de sesión guardado en almacenamiento local.
+ */
+export function obtenerToken(): string | null {
+  try {
+    return localStorage.getItem(AUTH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Guarda el token de sesión en almacenamiento local.
+ */
+export function guardarToken(token: string): void {
+  try {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+  } catch {
+    // Modo privado o cuota excedida
+  }
+}
+
+/**
+ * Elimina el token de sesión almacenado.
+ */
+export function eliminarToken(): void {
+  try {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+  } catch {
+    // Ignorar errores de almacenamiento
+  }
+}
+
+// Alias para compatibilidad
+export const getToken = obtenerToken;
+export const setToken = guardarToken;
+export const removeToken = eliminarToken;
+
+/**
+ * Envoltorio de fetch que inyecta automáticamente la cabecera Authorization: Bearer <token>
+ * y despacha el evento 'foxden:unauthorized' si la sesión expira o no es válida.
+ */
+async function fetchConAuth(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers || {});
+  const token = obtenerToken();
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const respuesta = await fetch(input, { ...init, headers });
+  if (respuesta.status === 401) {
+    window.dispatchEvent(new CustomEvent('foxden:unauthorized'));
+  }
+  return respuesta;
+}
+
 /**
  * Procesa la respuesta de la API y lanza un error descriptivo si el estado HTTP no es exitoso.
  */
@@ -34,10 +92,62 @@ export const handleResponse = manejarRespuesta;
 
 export const api = {
   /**
+   * Obtiene el estado de autenticación y si se requiere configuración inicial de administrador.
+   */
+  async obtenerEstadoAuth(): Promise<{ setup_required: boolean; authenticated: boolean; username: string | null }> {
+    const res = await fetchConAuth('/api/auth/status');
+    return manejarRespuesta<{ setup_required: boolean; authenticated: boolean; username: string | null }>(res);
+  },
+
+  /**
+   * Registra las credenciales de administrador en el primer arranque.
+   */
+  async configurarAdmin(datos: { username: string; password: string }): Promise<{ status: string; token: string; username: string }> {
+    const res = await fetchConAuth('/api/auth/setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(datos),
+    });
+    const respuesta = await manejarRespuesta<{ status: string; token: string; username: string }>(res);
+    if (respuesta.token) {
+      guardarToken(respuesta.token);
+    }
+    return respuesta;
+  },
+
+  /**
+   * Inicia sesión con usuario y contraseña.
+   */
+  async iniciarSesion(datos: { username: string; password: string }): Promise<{ status: string; token: string; username: string }> {
+    const res = await fetchConAuth('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(datos),
+    });
+    const respuesta = await manejarRespuesta<{ status: string; token: string; username: string }>(res);
+    if (respuesta.token) {
+      guardarToken(respuesta.token);
+    }
+    return respuesta;
+  },
+
+  /**
+   * Invalida el token activo y cierra la sesión local.
+   */
+  async cerrarSesion(): Promise<{ status: string }> {
+    try {
+      const res = await fetchConAuth('/api/auth/logout', { method: 'POST' });
+      return await manejarRespuesta<{ status: string }>(res);
+    } finally {
+      eliminarToken();
+    }
+  },
+
+  /**
    * Obtiene las métricas y estado completo del servidor y túnel.
    */
   async obtenerEstado(): Promise<ServerStatus> {
-    const res = await fetch('/api/status');
+    const res = await fetchConAuth('/api/status');
     return manejarRespuesta<ServerStatus>(res);
   },
 
@@ -45,7 +155,7 @@ export const api = {
    * Inicia el proceso de Minecraft.
    */
   async iniciarServidor(): Promise<{ status: string }> {
-    const res = await fetch('/api/server/start', { method: 'POST' });
+    const res = await fetchConAuth('/api/server/start', { method: 'POST' });
     return manejarRespuesta<{ status: string }>(res);
   },
 
@@ -53,7 +163,7 @@ export const api = {
    * Detiene el servidor de Minecraft de forma segura.
    */
   async detenerServidor(): Promise<{ status: string }> {
-    const res = await fetch('/api/server/stop', { method: 'POST' });
+    const res = await fetchConAuth('/api/server/stop', { method: 'POST' });
     return manejarRespuesta<{ status: string }>(res);
   },
 
@@ -61,7 +171,7 @@ export const api = {
    * Reinicia el servidor de Minecraft.
    */
   async reiniciarServidor(): Promise<{ status: string }> {
-    const res = await fetch('/api/server/restart', { method: 'POST' });
+    const res = await fetchConAuth('/api/server/restart', { method: 'POST' });
     return manejarRespuesta<{ status: string }>(res);
   },
 
@@ -69,7 +179,7 @@ export const api = {
    * Envía un comando a la consola de Minecraft.
    */
   async enviarComando(comando: string): Promise<{ status: string }> {
-    const res = await fetch('/api/server/command', {
+    const res = await fetchConAuth('/api/server/command', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ command: comando }),
@@ -81,7 +191,7 @@ export const api = {
    * Obtiene la configuración consolidada.
    */
   async obtenerConfiguracion(): Promise<ServerFullConfig> {
-    const res = await fetch('/api/config');
+    const res = await fetchConAuth('/api/config');
     return manejarRespuesta<ServerFullConfig>(res);
   },
 
@@ -89,7 +199,7 @@ export const api = {
    * Guarda cambios en la configuración.
    */
   async actualizarConfiguracion(carga: any): Promise<{ status: string; config: ServerFullConfig }> {
-    const res = await fetch('/api/config', {
+    const res = await fetchConAuth('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(carga),
@@ -101,7 +211,7 @@ export const api = {
    * Lista los JDK instalados en el sistema.
    */
   async obtenerJdks(): Promise<{ jdks: JdkInfo[] }> {
-    const res = await fetch('/api/jdks');
+    const res = await fetchConAuth('/api/jdks');
     return manejarRespuesta<{ jdks: JdkInfo[] }>(res);
   },
 
@@ -109,7 +219,7 @@ export const api = {
    * Inicia el túnel público Playit.
    */
   async iniciarTunel(): Promise<any> {
-    const res = await fetch('/api/tunnel/start', { method: 'POST' });
+    const res = await fetchConAuth('/api/tunnel/start', { method: 'POST' });
     return manejarRespuesta<any>(res);
   },
 
@@ -117,7 +227,7 @@ export const api = {
    * Detiene el túnel Playit.
    */
   async detenerTunel(): Promise<any> {
-    const res = await fetch('/api/tunnel/stop', { method: 'POST' });
+    const res = await fetchConAuth('/api/tunnel/stop', { method: 'POST' });
     return manejarRespuesta<any>(res);
   },
 
@@ -125,7 +235,7 @@ export const api = {
    * Obtiene la lista de versiones de Minecraft disponibles para instalar.
    */
   async obtenerVersiones(tipoServidor: string, incluirSnapshots: boolean = false): Promise<{ server_type: string; versions: string[] }> {
-    const res = await fetch(`/api/installer/versions?server_type=${tipoServidor}&include_snapshots=${incluirSnapshots}`);
+    const res = await fetchConAuth(`/api/installer/versions?server_type=${tipoServidor}&include_snapshots=${incluirSnapshots}`);
     return manejarRespuesta<{ server_type: string; versions: string[] }>(res);
   },
 
@@ -133,7 +243,7 @@ export const api = {
    * Obtiene las compilaciones oficiales publicadas de NeoForge para una versión de Minecraft.
    */
   async obtenerCompilacionesNeoForge(mcVersion: string): Promise<{ mc_version: string; builds: string[] }> {
-    const res = await fetch(`/api/installer/neoforge-builds?mc_version=${encodeURIComponent(mcVersion)}`);
+    const res = await fetchConAuth(`/api/installer/neoforge-builds?mc_version=${encodeURIComponent(mcVersion)}`);
     return manejarRespuesta<{ mc_version: string; builds: string[] }>(res);
   },
 
@@ -141,7 +251,7 @@ export const api = {
    * Lista los archivos ejecutables (JARs o run.sh) instalados.
    */
   async obtenerJarsInstalados(): Promise<{ jars: string[] }> {
-    const res = await fetch('/api/installer/installed-jars');
+    const res = await fetchConAuth('/api/installer/installed-jars');
     return manejarRespuesta<{ jars: string[] }>(res);
   },
 
@@ -149,7 +259,7 @@ export const api = {
    * Descarga e instala una versión específica con opción de compilación personalizada.
    */
   async descargarVersion(tipoServidor: string, version: string, build?: string): Promise<any> {
-    const res = await fetch('/api/installer/download', {
+    const res = await fetchConAuth('/api/installer/download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ server_type: tipoServidor, version, build }),
@@ -161,7 +271,7 @@ export const api = {
    * Envía un mensaje de prueba al webhook de Discord.
    */
   async probarDiscord(urlWebhook: string, mostrarIp: boolean): Promise<{ status: string; message: string }> {
-    const res = await fetch('/api/discord/test', {
+    const res = await fetchConAuth('/api/discord/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ webhook_url: urlWebhook, show_ip: mostrarIp }),
@@ -173,7 +283,7 @@ export const api = {
    * Obtiene la lista de mods instalados y estadísticas de estado.
    */
   async obtenerMods(): Promise<ModsResponse> {
-    const res = await fetch('/api/mods');
+    const res = await fetchConAuth('/api/mods');
     return manejarRespuesta<ModsResponse>(res);
   },
 
@@ -185,7 +295,7 @@ export const api = {
     archivos.forEach((archivo) => {
       formData.append('files', archivo);
     });
-    const res = await fetch('/api/mods/upload', {
+    const res = await fetchConAuth('/api/mods/upload', {
       method: 'POST',
       body: formData,
     });
@@ -196,7 +306,7 @@ export const api = {
    * Activa o desactiva un mod renombrándolo (.jar <-> .jar.disabled).
    */
   async alternarMod(filename: string, enabled: boolean): Promise<{ status: string; mod: ModItem }> {
-    const res = await fetch('/api/mods/toggle', {
+    const res = await fetchConAuth('/api/mods/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filename, enabled }),
@@ -208,7 +318,7 @@ export const api = {
    * Elimina un mod del disco de forma permanente.
    */
   async eliminarMod(filename: string): Promise<{ status: string; message: string }> {
-    const res = await fetch(`/api/mods/${encodeURIComponent(filename)}`, {
+    const res = await fetchConAuth(`/api/mods/${encodeURIComponent(filename)}`, {
       method: 'DELETE',
     });
     return manejarRespuesta<{ status: string; message: string }>(res);
@@ -235,7 +345,7 @@ export const api = {
     params.append('limit', limit.toString());
     params.append('server_only', soloServidor ? 'true' : 'false');
 
-    const res = await fetch(`/api/mods/modrinth/search?${params.toString()}`);
+    const res = await fetchConAuth(`/api/mods/modrinth/search?${params.toString()}`);
     return manejarRespuesta<ModrinthSearchResponse>(res);
   },
 
@@ -249,7 +359,7 @@ export const api = {
     versionId?: string,
     installDependencies: boolean = true
   ): Promise<ModrinthInstallResult> {
-    const res = await fetch('/api/mods/modrinth/install', {
+    const res = await fetchConAuth('/api/mods/modrinth/install', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -264,6 +374,10 @@ export const api = {
   },
 
   // Alias en inglés para compatibilidad
+  getAuthStatus() { return this.obtenerEstadoAuth(); },
+  setupAdmin(data: { username: string; password: string }) { return this.configurarAdmin(data); },
+  login(data: { username: string; password: string }) { return this.iniciarSesion(data); },
+  logout() { return this.cerrarSesion(); },
   searchModrinth(
     query?: string,
     loader?: string,
@@ -285,7 +399,6 @@ export const api = {
     return this.instalarModModrinth(projectId, loader, gameVersion, versionId, installDependencies);
   },
 
-  // Alias en inglés para compatibilidad
   getMods() { return this.obtenerMods(); },
   uploadMods(files: File[]) { return this.subirMods(files); },
   toggleMod(filename: string, enabled: boolean) { return this.alternarMod(filename, enabled); },
@@ -302,6 +415,6 @@ export const api = {
   stopTunnel() { return this.detenerTunel(); },
   getVersions(serverType: string, includeSnapshots: boolean = false) { return this.obtenerVersiones(serverType, includeSnapshots); },
   getInstalledJars() { return this.obtenerJarsInstalados(); },
-  downloadVersion(serverType: string, version: string) { return this.descargarVersion(serverType, version); },
+  downloadVersion(serverType: string, version: string, build?: string) { return this.descargarVersion(serverType, version, build); },
   testDiscord(webhookUrl: string, showIp: boolean) { return this.probarDiscord(webhookUrl, showIp); },
 };

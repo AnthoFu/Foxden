@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { Play, RotateCw, Square, Cpu, HardDrive, Clock, Globe } from 'lucide-react';
+import { Play, RotateCw, Square, Cpu, HardDrive, Clock, Globe, User, LogOut } from 'lucide-react';
 import { ServerStatus } from '../types';
 import { formatearTiempoActivo } from '../utils/format';
 
@@ -11,17 +11,21 @@ interface PropiedadesEncabezado {
   status: ServerStatus | null;
   loading: boolean;
   actionLoading: string | null;
+  currentUser?: string | null;
   onStart: () => void;
   onStop: () => void;
   onRestart: () => void;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<PropiedadesEncabezado> = ({
   status,
   actionLoading,
+  currentUser,
   onStart,
   onStop,
   onRestart,
+  onLogout,
 }) => {
   const estadoServidor = status?.state || 'STOPPED';
   const estaInstalado = status?.is_installed ?? false;
@@ -164,6 +168,25 @@ export const Header: React.FC<PropiedadesEncabezado> = ({
           )}
           <span>Detener</span>
         </button>
+
+        {/* Usuario y Cierre de Sesión */}
+        {currentUser && (
+          <div className="flex items-center gap-2 pl-2 border-l border-dark-700 ml-1">
+            <div className="flex items-center gap-1.5 bg-dark-750 border border-dark-700 px-2.5 py-1.5 rounded-lg text-xs" title={`Sesión iniciada como ${currentUser}`}>
+              <User className="w-3.5 h-3.5 text-fox-400" />
+              <span className="font-medium text-slate-200">{currentUser}</span>
+            </div>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                title="Cerrar Sesión"
+                className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-dark-700 hover:border-rose-500/30 transition-all active:scale-95"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );
