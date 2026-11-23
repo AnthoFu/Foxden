@@ -68,3 +68,22 @@ export interface ServerFullConfig {
   software_info: SoftwareInfo;
   tunnel: TunnelStatus;
 }
+
+export interface ModItem {
+  filename: string;
+  name: string;
+  version: string;
+  description: string;
+  loader: string;
+  enabled: boolean;
+  size_bytes: number;
+  size_mb: number;
+  modified_at: string;
+}
+
+export interface ModsResponse {
+  mods: ModItem[];
+  total: number;
+  enabled_count: number;
+  disabled_count: number;
+}

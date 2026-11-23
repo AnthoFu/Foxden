@@ -2,7 +2,7 @@
  * Cliente HTTP tipado para interactuar con la API REST de Foxden.
  */
 
-import { JdkInfo, ServerFullConfig, ServerStatus } from '../types';
+import { JdkInfo, ModItem, ModsResponse, ServerFullConfig, ServerStatus } from '../types';
 
 /**
  * Procesa la respuesta de la API y lanza un error descriptivo si el estado HTTP no es exitoso.
@@ -153,7 +153,56 @@ export const api = {
     return manejarRespuesta<{ status: string; message: string }>(res);
   },
 
+  /**
+   * Obtiene la lista de mods instalados y estadísticas de estado.
+   */
+  async obtenerMods(): Promise<ModsResponse> {
+    const res = await fetch('/api/mods');
+    return manejarRespuesta<ModsResponse>(res);
+  },
+
+  /**
+   * Sube uno o varios archivos .jar o .zip de modpacks e instala los mods.
+   */
+  async subirMods(archivos: File[]): Promise<{ uploaded: any[]; mods: ModItem[] }> {
+    const formData = new FormData();
+    archivos.forEach((archivo) => {
+      formData.append('files', archivo);
+    });
+    const res = await fetch('/api/mods/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    return manejarRespuesta<{ uploaded: any[]; mods: ModItem[] }>(res);
+  },
+
+  /**
+   * Activa o desactiva un mod renombrándolo (.jar <-> .jar.disabled).
+   */
+  async alternarMod(filename: string, enabled: boolean): Promise<{ status: string; mod: ModItem }> {
+    const res = await fetch('/api/mods/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename, enabled }),
+    });
+    return manejarRespuesta<{ status: string; mod: ModItem }>(res);
+  },
+
+  /**
+   * Elimina un mod del disco de forma permanente.
+   */
+  async eliminarMod(filename: string): Promise<{ status: string; message: string }> {
+    const res = await fetch(`/api/mods/${encodeURIComponent(filename)}`, {
+      method: 'DELETE',
+    });
+    return manejarRespuesta<{ status: string; message: string }>(res);
+  },
+
   // Alias en inglés para compatibilidad
+  getMods() { return this.obtenerMods(); },
+  uploadMods(files: File[]) { return this.subirMods(files); },
+  toggleMod(filename: string, enabled: boolean) { return this.alternarMod(filename, enabled); },
+  deleteMod(filename: string) { return this.eliminarMod(filename); },
   getStatus() { return this.obtenerEstado(); },
   startServer() { return this.iniciarServidor(); },
   stopServer() { return this.detenerServidor(); },

@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Terminal, Sliders, Package, Globe } from 'lucide-react';
+import { Terminal, Sliders, Package, Globe, Puzzle } from 'lucide-react';
 import { Header } from './components/Header';
 import { AlertBanner } from './components/AlertBanner';
 import { TunnelWarningModal } from './components/TunnelWarningModal';
@@ -12,11 +12,12 @@ import { TunnelWarningBanner } from './components/TunnelWarningBanner';
 import { ConsoleTab } from './components/tabs/ConsoleTab';
 import { ConfigTab } from './components/tabs/ConfigTab';
 import { VersionsTab } from './components/tabs/VersionsTab';
+import { ModsTab } from './components/tabs/ModsTab';
 import { TunnelTab } from './components/tabs/TunnelTab';
 import { useEstadoServidor } from './hooks/useServerStatus';
 
 export const App: React.FC = () => {
-  const [pestanaActiva, setPestanaActiva] = useState<'console' | 'config' | 'versions' | 'tunnel'>('console');
+  const [pestanaActiva, setPestanaActiva] = useState<'console' | 'config' | 'versions' | 'mods' | 'tunnel'>('console');
   const [mostrarModalTunel, setMostrarModalTunel] = useState<boolean>(false);
 
   const {
@@ -48,6 +49,7 @@ export const App: React.FC = () => {
     { id: 'console', label: 'Consola en Vivo', icon: Terminal },
     { id: 'config', label: 'Configuración', icon: Sliders },
     { id: 'versions', label: 'Versiones e Instalador', icon: Package },
+    { id: 'mods', label: 'Gestor de Mods', icon: Puzzle },
     { id: 'tunnel', label: 'Conexión Pública (Playit)', icon: Globe },
   ] as const;
 
@@ -134,6 +136,7 @@ export const App: React.FC = () => {
           {pestanaActiva === 'console' && <ConsoleTab />}
           {pestanaActiva === 'config' && <ConfigTab />}
           {pestanaActiva === 'versions' && <VersionsTab status={status} onInstalled={actualizarEstado} />}
+          {pestanaActiva === 'mods' && <ModsTab status={status} onNavigateToInstaller={() => setPestanaActiva('versions')} />}
           {pestanaActiva === 'tunnel' && <TunnelTab status={status} onRefresh={actualizarEstado} />}
         </main>
       </div>

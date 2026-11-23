@@ -6,13 +6,14 @@ túnel público de Playit y alertas de Discord.
 
 from pathlib import Path
 from typing import Dict, List, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.config import ConfigManager
 from app.core.discord import DiscordNotifier
 from app.core.installer import ServerInstaller
 from app.core.jdk import JdkManager
+from app.core.mods import ModManager
 from app.core.process import MinecraftProcess
 from app.core.settings import SettingsManager
 from app.core.tunnel import PlayitTunnelManager
@@ -50,6 +51,12 @@ class DownloadVersionRequest(BaseModel):
     """Esquema de solicitud para descargar e instalar una versión de Minecraft."""
     server_type: str = Field(default="vanilla", description="vanilla, fabric, forge o neoforge")
     version: str = Field(..., description="Identificador de versión de Minecraft, ej. 26.2, 1.21.4")
+
+
+class ModToggleRequest(BaseModel):
+    """Esquema de solicitud para activar o desactivar un mod."""
+    filename: str = Field(..., description="Nombre del archivo mod, ej. jei-1.20.1.jar")
+    enabled: bool = Field(..., description="True para activar, False para desactivar")
 
 
 def detectar_informacion_software(
@@ -184,6 +191,7 @@ def configurar_rutas(
     tunnel_mgr: PlayitTunnelManager,
     settings_mgr: SettingsManager,
     discord_notifier: DiscordNotifier,
+    mod_mgr: Optional[ModManager] = None,
 ) -> None:
     """Registra y enlaza todos los controladores de rutas REST de la aplicación."""
     gestor_jdk = JdkManager()
@@ -466,6 +474,65 @@ def configurar_rutas(
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
+    @enrutador_app.get("/mods")
+    async def obtener_mods():
+        """Lista todos los mods instalados en servidor_minecraft/mods/."""
+        if not mod_mgr:
+            return {"mods": [], "total": 0, "enabled_count": 0, "disabled_count": 0}
+        mods = mod_mgr.listar_mods()
+        activos = sum(1 for m in mods if m["enabled"])
+        desactivados = len(mods) - activos
+        return {
+            "mods": mods,
+            "total": len(mods),
+            "enabled_count": activos,
+            "disabled_count": desactivados,
+        }
+
+    @enrutador_app.post("/mods/upload")
+    async def subir_mods(files: List[UploadFile] = File(...)):
+        """Sube uno o varios archivos .jar o .zip de modpacks e instala los mods."""
+        if not mod_mgr:
+            raise HTTPException(status_code=500, detail="Gestor de mods no configurado.")
+
+        resultados = []
+        for archivo in files:
+            nombre = archivo.filename or "mod.jar"
+            contenido = await archivo.read()
+            try:
+                res = mod_mgr.instalar_archivo(contenido, nombre)
+                resultados.append({"filename": nombre, "status": "success", "detail": res})
+            except Exception as e:
+                resultados.append({"filename": nombre, "status": "error", "error": str(e)})
+
+        return {"uploaded": resultados, "mods": mod_mgr.listar_mods()}
+
+    @enrutador_app.post("/mods/toggle")
+    async def alternar_mod(solicitud: ModToggleRequest):
+        """Activa o desactiva un mod (.jar <-> .jar.disabled)."""
+        if not mod_mgr:
+            raise HTTPException(status_code=500, detail="Gestor de mods no configurado.")
+        try:
+            res = mod_mgr.alternar_estado(solicitud.filename, solicitud.enabled)
+            return {"status": "success", "mod": res}
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail="El mod especificado no existe.")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @enrutador_app.delete("/mods/{filename}")
+    async def eliminar_mod(filename: str):
+        """Elimina un archivo de mod del servidor."""
+        if not mod_mgr:
+            raise HTTPException(status_code=500, detail="Gestor de mods no configurado.")
+        try:
+            exito = mod_mgr.eliminar_mod(filename)
+            if not exito:
+                raise HTTPException(status_code=404, detail="El archivo no existe.")
+            return {"status": "success", "message": f"Mod {filename} eliminado correctamente."}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 
 # Alias en inglés para compatibilidad
