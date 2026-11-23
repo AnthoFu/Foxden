@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Set
 import urllib.parse
 import httpx
 
-from app.version import VERSION_APP
+from app.version import __version__
 
 
 class ModrinthClient:
@@ -22,7 +22,7 @@ class ModrinthClient:
         self.server_dir = Path(server_dir).resolve()
         self.mods_dir = self.server_dir / "mods"
         self.mods_dir.mkdir(parents=True, exist_ok=True)
-        self.user_agent = user_agent or f"AnthoFu/foxden/{VERSION_APP} (https://github.com/AnthoFu/foxden)"
+        self.user_agent = user_agent or f"AnthoFu/foxden/{__version__} (https://github.com/AnthoFu/foxden)"
 
     def _headers(self) -> Dict[str, str]:
         return {

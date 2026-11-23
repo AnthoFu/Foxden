@@ -19,3 +19,4 @@ except Exception:
     __version__ = "1.0.0"
 
 VERSION = __version__
+VERSION_APP = __version__
