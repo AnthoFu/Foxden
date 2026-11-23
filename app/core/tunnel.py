@@ -32,6 +32,7 @@ class PlayitTunnelManager:
         self._reader_task: Optional[asyncio.Task] = None
         self._refreshing_addr: bool = False
         self._refresh_attempted: bool = False
+        self._lock = asyncio.Lock()
 
     @property
     def ruta_binario(self) -> Path:
@@ -65,76 +66,93 @@ class PlayitTunnelManager:
 
     async def iniciar(self) -> bool:
         """Inicia el proceso del túnel de Playit."""
-        if self.state in ("RUNNING", "WAITING_CLAIM") and self.process:
+        async with self._lock:
+            if self.state in ("RUNNING", "WAITING_CLAIM", "STARTING") and self.process and self.process.returncode is None:
+                return True
+
+            if self._reader_task and not self._reader_task.done():
+                self._reader_task.cancel()
+                try:
+                    await asyncio.wait_for(self._reader_task, timeout=1.0)
+                except Exception:
+                    pass
+                self._reader_task = None
+
+            try:
+                ruta_bin = await self.asegurar_binario_instalado()
+            except Exception as e:
+                self.logs.append(f"[PLAYIT] Error al instalar el binario: {e}")
+                return False
+
+            self.state = "STARTING"
+            self.claim_url = None
+            self.public_address = None
+            self._refresh_attempted = False
+            self.logs.append(f"[PLAYIT] Iniciando proceso de túnel con configuración: {self.config_file}")
+
+            cmd = [str(ruta_bin), "--secret_path", str(self.config_file), "--stdout", "start"]
+            try:
+                self.process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.STDOUT,
+                    cwd=str(self.base_dir),
+                )
+            except Exception as e:
+                self.state = "STOPPED"
+                self.logs.append(f"[PLAYIT] Error al iniciar el proceso: {e}")
+                return False
+
+            self._reader_task = asyncio.create_task(self._leer_salida_tunel())
             return True
-
-        try:
-            ruta_bin = await self.asegurar_binario_instalado()
-        except Exception as e:
-            self.logs.append(f"[PLAYIT] Error al instalar el binario: {e}")
-            return False
-
-        self.state = "STARTING"
-        self.claim_url = None
-        self.public_address = None
-        self._refresh_attempted = False
-        self.logs.append(f"[PLAYIT] Iniciando proceso de túnel con configuración: {self.config_file}")
-
-        cmd = [str(ruta_bin), "--secret_path", str(self.config_file), "--stdout", "start"]
-        try:
-            self.process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
-                cwd=str(self.base_dir),
-            )
-        except Exception as e:
-            self.state = "STOPPED"
-            self.logs.append(f"[PLAYIT] Error al iniciar el proceso: {e}")
-            return False
-
-        self._reader_task = asyncio.create_task(self._leer_salida_tunel())
-        return True
 
     async def _leer_salida_tunel(self) -> None:
         """Lee la salida estándar del túnel para capturar URLs de vinculación y direcciones IP."""
-        if not self.process or not self.process.stdout:
+        proc = self.process
+        if not proc or not proc.stdout:
             return
 
-        while True:
-            line_bytes = await self.process.stdout.readline()
-            if not line_bytes:
-                break
+        try:
+            while True:
+                line_bytes = await proc.stdout.readline()
+                if not line_bytes:
+                    break
 
-            linea = line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
-            linea_limpia = re.sub(r"\x1b\[[0-9;]*m", "", linea)
-            self.logs.append(linea_limpia)
+                linea = line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
+                linea_limpia = re.sub(r"\x1b\[[0-9;]*m", "", linea)
+                self.logs.append(linea_limpia)
 
-            # Detectar enlace de vinculación
-            match_claim = re.search(r"https://playit\.gg/claim/[a-zA-Z0-9]+", linea_limpia)
-            if match_claim:
-                self.claim_url = match_claim.group(0)
-                self.state = "WAITING_CLAIM"
+                # Detectar enlace de vinculación
+                match_claim = re.search(r"https://playit\.gg/claim/[a-zA-Z0-9]+", linea_limpia)
+                if match_claim:
+                    self.claim_url = match_claim.group(0)
+                    self.state = "WAITING_CLAIM"
 
-            # Detectar dirección pública en la salida
-            match_dir = re.search(r"([a-zA-Z0-9\-\.]+\.(?:ply\.gg|playit\.gg)(?::\d+)?)", linea_limpia)
-            if match_dir:
-                self.public_address = match_dir.group(1)
-                self.state = "RUNNING"
-                self.claim_url = None
+                # Detectar dirección pública en la salida
+                match_dir = re.search(r"([a-zA-Z0-9\-\.]+\.(?:ply\.gg|playit\.gg)(?::\d+)?)", linea_limpia)
+                if match_dir:
+                    self.public_address = match_dir.group(1)
+                    self.state = "RUNNING"
+                    self.claim_url = None
 
-            if "tunnel running" in linea_limpia.lower() or "connection established" in linea_limpia.lower():
-                self.state = "RUNNING"
-                self.claim_url = None
-                if not self.public_address and not self._refresh_attempted:
-                    self._refresh_attempted = True
-                    asyncio.create_task(self._refrescar_direccion_demorado())
-
-        await self.process.wait()
-        self.state = "STOPPED"
-        self.process = None
-        self.logs.append("[PLAYIT] El proceso del túnel se detuvo.")
+                if "tunnel running" in linea_limpia.lower() or "connection established" in linea_limpia.lower():
+                    self.state = "RUNNING"
+                    self.claim_url = None
+                    if not self.public_address and not self._refresh_attempted:
+                        self._refresh_attempted = True
+                        asyncio.create_task(self._refrescar_direccion_demorado())
+        except (asyncio.CancelledError, RuntimeError):
+            pass
+        finally:
+            try:
+                await proc.wait()
+            except Exception:
+                pass
+            if self.process is proc:
+                self.state = "STOPPED"
+                self.process = None
+                self.logs.append("[PLAYIT] El proceso del túnel se detuvo.")
 
     async def _refrescar_direccion_demorado(self) -> None:
         """Espera unos segundos para consultar la lista de túneles si no apareció en stdout."""
@@ -180,20 +198,29 @@ class PlayitTunnelManager:
 
     async def detener(self) -> bool:
         """Detiene el proceso del túnel de Playit."""
-        if self.state == "STOPPED" or not self.process:
-            return False
+        async with self._lock:
+            if self.state == "STOPPED" or not self.process:
+                return False
 
-        self.state = "STOPPING"
-        try:
-            self.process.terminate()
-            await asyncio.wait_for(self.process.wait(), timeout=5.0)
-        except Exception:
-            if self.process:
-                self.process.kill()
+            self.state = "STOPPING"
+            if self._reader_task and not self._reader_task.done():
+                self._reader_task.cancel()
+                try:
+                    await asyncio.wait_for(self._reader_task, timeout=1.0)
+                except Exception:
+                    pass
+                self._reader_task = None
 
-        self.state = "STOPPED"
-        self.process = None
-        return True
+            try:
+                self.process.terminate()
+                await asyncio.wait_for(self.process.wait(), timeout=5.0)
+            except Exception:
+                if self.process:
+                    self.process.kill()
+
+            self.state = "STOPPED"
+            self.process = None
+            return True
 
     def obtener_estado(self) -> dict:
         """Devuelve el estado estructurado del túnel para la API y el panel."""
