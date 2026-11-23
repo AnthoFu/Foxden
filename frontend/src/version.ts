@@ -1,4 +1,7 @@
 /**
  * Versión de la aplicación Foxden.
+ * Importada directamente de version.json en la raíz del repositorio.
  */
-export const APP_VERSION = '1.0.0';
+import versionData from '../../version.json';
+
+export const APP_VERSION = versionData.version;

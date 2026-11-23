@@ -100,6 +100,7 @@ async def al_estar_servidor_listo():
         version=administrador_ajustes.obtener("installed_version", "26.3"),
         ip_publica=ip,
         motd=motd,
+        tipo_motor=info.get("type", "vanilla"),
     )
 
 
@@ -111,10 +112,13 @@ async def al_detenerse_servidor(segundos_actividad: float, codigo_retorno: int):
     """Callback ejecutado cuando el proceso de Minecraft finaliza."""
     tiempo_str = formatear_tiempo_activo(segundos_actividad)
     fue_caida = (codigo_retorno != 0)
+    objetivo = administrador_ajustes.obtener("target_jar", "server.jar")
+    info = detectar_informacion_software(instalador.server_dir, objetivo)
     await notificador_discord.notificar_servidor_detenido(
         tiempo_activo_str=tiempo_str,
         fue_caida=fue_caida,
         codigo_salida=codigo_retorno,
+        tipo_motor=info.get("type", "vanilla"),
     )
 
 

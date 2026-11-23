@@ -406,10 +406,15 @@ def configurar_rutas(
             )
 
         ip = tunnel_mgr.public_address or settings_mgr.obtener("public_ip_alias") or "playit.tu-servidor.gg"
+        objetivo = settings_mgr.obtener("target_jar", "server.jar")
+        motor = settings_mgr.obtener("installed_engine", "")
+        info = detectar_informacion_software(installer.server_dir, objetivo, motor_instalado=motor)
+        tipo = info.get("type", "vanilla")
         exito = await discord_notifier.enviar_mensaje_prueba(
             ip_publica=ip,
             webhook_personalizado=url,
             mostrar_ip_personalizado=solicitud.show_ip,
+            tipo_motor=tipo,
         )
         if not exito:
             raise HTTPException(

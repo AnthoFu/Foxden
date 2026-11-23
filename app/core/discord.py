@@ -17,6 +17,26 @@ ICONO_PUNTO_ROJO = "https://raw.githubusercontent.com/twitter/twemoji/master/ass
 ICONO_PUNTO_GRIS = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/26aa.png"
 ICONO_TUBO_ENSAYO = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f9ea.png"
 
+# Miniaturas oficiales de motores de Minecraft (Vanilla, Fabric, Forge, NeoForge)
+MINIATURAS_MOTORES = {
+    "vanilla": {
+        "url": "https://raw.githubusercontent.com/AnthoFu/foxden/main/app/static/loaders/vanilla.png",
+        "fallback": "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f331.png",
+    },
+    "fabric": {
+        "url": "https://raw.githubusercontent.com/AnthoFu/foxden/main/app/static/loaders/fabric.png",
+        "fallback": "https://avatars.githubusercontent.com/u/21025855?s=256&v=4",
+    },
+    "forge": {
+        "url": "https://raw.githubusercontent.com/AnthoFu/foxden/main/app/static/loaders/forge.png",
+        "fallback": "https://avatars.githubusercontent.com/u/1390178?s=256&v=4",
+    },
+    "neoforge": {
+        "url": "https://raw.githubusercontent.com/AnthoFu/foxden/main/app/static/loaders/neoforge.png",
+        "fallback": "https://avatars.githubusercontent.com/u/138629134?s=256&v=4",
+    },
+}
+
 # Alias para compatibilidad
 FOX_AVATAR_URL = URL_AVATAR_ZORRO
 GREEN_DOT_ICON = ICONO_PUNTO_VERDE
@@ -74,6 +94,17 @@ class DiscordNotifier:
 
         return URL_AVATAR_FALLBACK
 
+    def obtener_miniatura_motor(self, tipo_motor: Optional[str] = None) -> str:
+        """
+        Devuelve la URL de la miniatura oficial para el motor de Minecraft activo.
+        Usa la URL de foxden si el repo es público/accesible, o el fallback permanente de GitHub.
+        """
+        clave = (tipo_motor or "vanilla").lower().strip()
+        motor_info = MINIATURAS_MOTORES.get(clave, MINIATURAS_MOTORES["vanilla"])
+        if self._avatar_resuelto == URL_AVATAR_ZORRO:
+            return motor_info["url"]
+        return motor_info["fallback"]
+
     async def enviar_embed(
         self,
         titulo: str,
@@ -92,7 +123,7 @@ class DiscordNotifier:
             async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as cliente:
                 avatar = await self._obtener_avatar_seguro(cliente)
 
-                embed_author: dict = {"name": "Foxden • Minecraft Server Manager"}
+                embed_author: dict = {"name": "Foxden • Servidor de Minecraft"}
                 embed_footer: dict = {"text": "Foxden • Servidor de Minecraft"}
                 if avatar:
                     embed_author["icon_url"] = avatar
@@ -129,6 +160,7 @@ class DiscordNotifier:
         version: str,
         ip_publica: Optional[str] = None,
         motd: Optional[str] = None,
+        tipo_motor: Optional[str] = None,
     ) -> bool:
         """Envía notificación de servidor encendido y listo para jugar."""
         if not self.esta_configurado():
@@ -154,12 +186,13 @@ class DiscordNotifier:
                 "inline": False,
             })
 
+        miniatura = self.obtener_miniatura_motor(tipo_motor)
         return await self.enviar_embed(
             titulo="🟢 ¡Servidor de Minecraft En Línea!",
             descripcion="El servidor ha iniciado con éxito y ya está listo para recibir jugadores.",
             color=0x22C55E,  # Verde esmeralda
             campos=campos,
-            url_miniatura=ICONO_PUNTO_VERDE,
+            url_miniatura=miniatura,
         )
 
     async def notificar_servidor_detenido(
@@ -167,11 +200,13 @@ class DiscordNotifier:
         tiempo_activo_str: str,
         fue_caida: bool = False,
         codigo_salida: Optional[int] = None,
+        tipo_motor: Optional[str] = None,
     ) -> bool:
         """Envía notificación de servidor detenido de forma normal o por caída inesperada."""
         if not self.esta_configurado():
             return False
 
+        miniatura = self.obtener_miniatura_motor(tipo_motor)
         if fue_caida:
             str_codigo = f"Código {codigo_salida}" if codigo_salida is not None else "Inesperado"
             return await self.enviar_embed(
@@ -182,7 +217,7 @@ class DiscordNotifier:
                     {"name": "⏱️ Tiempo en línea previo", "value": f"**{tiempo_activo_str}**", "inline": True},
                     {"name": "🚨 Estado de Salida", "value": f"**{str_codigo}**", "inline": True},
                 ],
-                url_miniatura=ICONO_PUNTO_ROJO,
+                url_miniatura=miniatura,
             )
 
         return await self.enviar_embed(
@@ -193,7 +228,7 @@ class DiscordNotifier:
                 {"name": "⏱️ Tiempo total de actividad", "value": f"**{tiempo_activo_str}**", "inline": True},
                 {"name": "📊 Estado", "value": "`Cerrado con éxito`", "inline": True},
             ],
-            url_miniatura=ICONO_PUNTO_GRIS,
+            url_miniatura=miniatura,
         )
 
     async def enviar_mensaje_prueba(
@@ -201,6 +236,7 @@ class DiscordNotifier:
         ip_publica: Optional[str] = None,
         webhook_personalizado: Optional[str] = None,
         mostrar_ip_personalizado: Optional[bool] = None,
+        tipo_motor: Optional[str] = None,
     ) -> bool:
         """Envía un mensaje de prueba al webhook para verificar la integración."""
         mostrar_ip = self.show_ip if mostrar_ip_personalizado is None else mostrar_ip_personalizado
@@ -219,12 +255,13 @@ class DiscordNotifier:
                 "inline": False,
             })
 
+        miniatura = self.obtener_miniatura_motor(tipo_motor)
         return await self.enviar_embed(
-            titulo="🧪 Prueba de Notificación de Foxden",
+            titulo="🔔 Prueba de Notificación de Foxden",
             descripcion="¡Excelente! Las notificaciones de tu servidor **Foxden** están listas y configuradas correctamente.",
             color=0x06B6D4,  # Cian
             campos=campos,
-            url_miniatura=ICONO_TUBO_ENSAYO,
+            url_miniatura=miniatura,
             webhook_personalizado=webhook_personalizado,
         )
 

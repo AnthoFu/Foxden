@@ -1,5 +1,5 @@
 {
-  "name": "Foxden - Minecraft Server Manager",
+  "name": "Foxden - Servidor de Minecraft",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
   "features": {
     "ghcr.io/devcontainers/features/java:1": {

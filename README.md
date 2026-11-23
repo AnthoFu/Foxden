@@ -79,7 +79,7 @@ El proyecto está organizado de forma modular separando el backend en Python del
 ├── 📄 foxden_settings.json     # Archivo de configuración persistente (RAM, JDK, Webhooks)
 ├── 📁 app/                     # Backend FastAPI
 │   ├── 📄 main.py              # Punto de entrada de la aplicación web y rutas estáticas
-│   ├── 📄 version.py           # Fuente única de la verdad de la versión (1.0.0)
+│   ├── 📄 version.py           # Fuente única de la verdad (lee version.json)
 │   ├── 📁 api/                 # Controladores de rutas REST y WebSockets
 │   │   ├── 📄 routes.py        # Endpoints de estado, configuración e instalador
 │   │   └── 📄 websocket.py     # Transmisión en vivo de consola y comandos

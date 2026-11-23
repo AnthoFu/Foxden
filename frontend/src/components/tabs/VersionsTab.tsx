@@ -122,8 +122,12 @@ export const VersionsTab: React.FC<VersionsTabProps> = ({ status, onInstalled })
 
         <div className="bg-dark-750 border border-dark-700 rounded-xl p-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="text-3xl p-2 bg-dark-800 border border-dark-700 rounded-lg shadow-inner">
-              {swInfo?.icon || '🎮'}
+            <div className="w-12 h-12 p-2 bg-dark-800 border border-dark-700 rounded-lg shadow-inner flex items-center justify-center shrink-0">
+              {swInfo?.type && ['vanilla', 'fabric', 'forge', 'neoforge'].includes(swInfo.type) ? (
+                <img src={`/loaders/${swInfo.type}.png`} alt={swInfo.name} className="w-8 h-8 object-contain" />
+              ) : (
+                <span className="text-2xl">{swInfo?.icon || '🎮'}</span>
+              )}
             </div>
             <div>
               <h3 className="text-base font-bold text-white">{swInfo?.name || 'Cargando software...'}</h3>
@@ -204,25 +208,25 @@ export const VersionsTab: React.FC<VersionsTabProps> = ({ status, onInstalled })
                 {
                   id: 'neoforge',
                   name: 'NeoForge',
-                  icon: '🔥',
+                  icon: '/loaders/neoforge.png',
                   desc: 'Estándar moderno para mods en Minecraft 1.20.1+ y 1.21+',
                 },
                 {
                   id: 'vanilla',
                   name: 'Mojang Vanilla',
-                  icon: '🍦',
+                  icon: '/loaders/vanilla.png',
                   desc: 'Minecraft oficial sin modificaciones de ningún tipo',
                 },
                 {
                   id: 'fabric',
                   name: 'Fabric Loader',
-                  icon: '🧵',
+                  icon: '/loaders/fabric.png',
                   desc: 'Ideal para optimización (Sodium, Iris) y mods ligeros',
                 },
                 {
                   id: 'forge',
                   name: 'Minecraft Forge',
-                  icon: '🔨',
+                  icon: '/loaders/forge.png',
                   desc: 'Para paquetes de mods tradicionales y versiones legadas',
                 },
               ].map((opt) => (
@@ -236,7 +240,9 @@ export const VersionsTab: React.FC<VersionsTabProps> = ({ status, onInstalled })
                       : 'bg-dark-750 border-dark-700 hover:border-slate-600'
                   }`}
                 >
-                  <span className="text-2xl p-1 bg-dark-800 rounded-lg shadow-inner">{opt.icon}</span>
+                  <div className="w-9 h-9 p-1.5 bg-dark-800 rounded-lg shadow-inner flex items-center justify-center shrink-0">
+                    <img src={opt.icon} alt={opt.name} className="w-6 h-6 object-contain" />
+                  </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm text-white">{opt.name}</span>
